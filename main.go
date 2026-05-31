@@ -9,9 +9,9 @@ func main() {
 	c := cpu.NewCPU4004()
 
 	program := []byte{
-		cpu.LDM(14), // A = 14
-		cpu.IAC(),   // A = 15
-		cpu.IAC(),   // A = 0, carry = true
+		cpu.LDM(1), // A = 1
+		cpu.DAC(),  // A = 0, carry = false
+		cpu.DAC(),  // A = 15, carry = true (underflow)
 	}
 
 	fmt.Println("=== BEFORE ===")

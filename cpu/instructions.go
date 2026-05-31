@@ -77,6 +77,13 @@ func (c *CPU4004) Execute(op byte) error {
 		c.A = nibble(result)
 		c.C = result > 0x0F
 
+	// DAC: Decrement Accumulator, decrementa l'accumulatore (A) di 1 considerando il borrow (carry)
+	// La formula 16 + A - 1 evita underflow su uint8. Se il risultato è < 16, significa che senza il "prestito del 16" sarebbe stato negativo → borrow avvenuto → C=1.
+	case op == OP_DAC:
+		result := uint8(16) + c.A - 1
+		c.A = nibble(result)
+		c.C = result < 16
+
 	default:
 		return fmt.Errorf("opcode non implementato: 0x%02X", op)
 	}

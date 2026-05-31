@@ -16,3 +16,5 @@ func LD(r byte) byte { return OP_LD | nibble(r) }
 func SUB(r byte) byte { return OP_SUB | nibble(r) }
 
 func IAC() byte { return OP_IAC }
+
+func DAC() byte { return OP_DAC }

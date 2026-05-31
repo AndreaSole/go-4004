@@ -253,3 +253,33 @@ func TestIACOverflow(t *testing.T) {
 		t.Error("C = false, want true")
 	}
 }
+
+// TestDAC verifica che l'istruzione DAC decrementi correttamente l'accumulatore (A) di 1 e aggiorni il carry (C) se necessario
+func TestDAC(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 5
+	if err := c.Execute(DAC()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 4 {
+		t.Errorf("A = %d, want 4", c.A)
+	}
+	if c.C {
+		t.Error("C = true, want false")
+	}
+}
+
+// TestDACUnderflow verifica che l'istruzione DAC gestisca correttamente l'underflow quando l'accumulatore (A) è a 0x00 (0) e viene decrementato
+func TestDACUnderflow(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 0
+	if err := c.Execute(DAC()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 0x0F {
+		t.Errorf("A = %d, want 15", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true")
+	}
+}

@@ -42,6 +42,7 @@ Istruzioni implementate:
 * ADD
 * SUB
 * IAC
+* DAC
 
 ---
 
@@ -283,6 +284,7 @@ CPU minima:
 * ADD
 * SUB
 * IAC
+* DAC
 
 
 * test LDM
