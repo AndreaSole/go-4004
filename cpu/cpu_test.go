@@ -167,3 +167,24 @@ func TestNOP(t *testing.T) {
 		t.Fatalf("expected PC unchanged, got PC=%d", c.PC)
 	}
 }
+
+// TestLD verifica che l'istruzione LD carichi correttamente il valore di un registro (Rn) nell'accumulatore (A)
+func TestLD(t *testing.T) {
+	c := NewCPU4004()
+
+	c.A = 1
+	c.R[R2] = 9
+
+	err := c.Execute(LD(R2))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if c.A != 9 {
+		t.Fatalf("expected A=9, got A=%d", c.A)
+	}
+
+	if c.R[R2] != 9 {
+		t.Fatalf("expected R2 unchanged, got R2=%d", c.R[R2])
+	}
+}

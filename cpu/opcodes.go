@@ -1,6 +1,5 @@
 package cpu
 
-// Definizione dei registri del CPU4004
 // Il 4004 ha 16 registri da 4 bit, identificati da R0 a RF
 // Questi registri vengono utilizzati per memorizzare dati temporanei durante l'esecuzione delle istruzioni
 const (
@@ -22,17 +21,17 @@ const (
 	RF = 0xF
 )
 
-// Definizione delle istruzioni supportate dal CPU4004
-// Questi opcode rappresentano le operazioni che il CPU può eseguire
 // OP_NOP: No Operation, non fa nulla
 // OP_INC: Incrementa il registro specificato
 // OP_ADD: Aggiunge il valore del registro specificato all'accumulatore (A) e al carry
 // OP_XCH: Scambia il valore dell'accumulatore con quello del registro specificato
 // OP_LDM: Carica un valore immediato nell'accumulatore (A)
+// OP_LD: Carica il valore del registro specificato nell'accumulatore (A)
 const (
 	OP_NOP = 0x00
 	OP_INC = 0x60
 	OP_ADD = 0x80
+	OP_LD  = 0xA0
 	OP_XCH = 0xB0
 	OP_LDM = 0xD0
 )

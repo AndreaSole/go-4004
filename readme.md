@@ -36,6 +36,7 @@ Istruzioni implementate:
 
 * NOP
 * LDM
+* LD
 * XCH
 * INC
 * ADD
@@ -59,7 +60,6 @@ go4004/
 ├── go.mod
 ├── main.go
 ├── README.md
-├── PLAN.md
 └── cpu/
     ├── cpu.go
     ├── opcodes.go
@@ -275,24 +275,19 @@ CPU minima:
 
 * NOP
 * LDM
+* LD
 * XCH
 * INC
 * ADD
 
----
-
-## Prossimo step
-
-Aggiungere test automatici Go:
 
 * test LDM
+* test LD
 * test XCH
 * test INC
 * test ADD
 * test carry
 * test NOP
-
----
 
 ## Step futuri
 

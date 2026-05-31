@@ -19,6 +19,12 @@ func (c *CPU4004) Execute(op byte) error {
 		// LDM 0-15: carica il valore immediato (0-15) nell'accumulatore (A)
 		c.A = nibble(low)
 
+	// L'istruzione LD Rn: carica il valore del registro specificato (R0-R15) nell'accumulatore (A)
+	// Ad esempio, se R0 = 0x05, dopo LD R0, A sarà 0x05
+	case op&0xF0 == OP_LD:
+		n := low
+		c.A = nibble(c.R[n])
+
 	case op&0xF0 == OP_XCH:
 		// XCH R0-R15: scambia il valore dell'accumulatore (A) con quello del registro specificato (R0-R15)
 		// Ad esempio, se A = 0x02 e R0 = 0x00, dopo XCH R0, A sarà 0x00 e R0 sarà 0x02

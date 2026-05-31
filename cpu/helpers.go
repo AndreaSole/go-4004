@@ -21,3 +21,7 @@ func INC(r byte) byte {
 func ADD(r byte) byte {
 	return OP_ADD | nibble(r)
 }
+
+func LD(r byte) byte {
+	return OP_LD | nibble(r)
+}
