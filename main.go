@@ -8,15 +8,13 @@ import (
 func main() {
 	c := cpu.NewCPU4004()
 
-	// TCS: valore di correzione BCD per la sottrazione
+	// addizione BCD: 8 + 5 = 13 (decimale)
 	program := []byte{
-		cpu.STC(),       // forza C = true (simula un borrow)
-		cpu.TCS(),       // A = 10, C = false
-		cpu.XCH(cpu.R0), // salva 10 in R0
-
-		cpu.CLC(),       // C = false (nessun borrow)
-		cpu.TCS(),       // A = 9, C = false
-		cpu.XCH(cpu.R1), // salva 9 in R1
+		cpu.LDM(8),      // A = 8
+		cpu.XCH(cpu.R0), // R0 = 8
+		cpu.LDM(5),      // A = 5
+		cpu.ADD(cpu.R0), // A = 13 (0xD), C = false — risultato binario
+		cpu.DAA(),       // A = 3, C = true  — corretto in BCD
 	}
 
 	fmt.Println("=== BEFORE ===")

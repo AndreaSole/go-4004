@@ -52,6 +52,7 @@ Istruzioni implementate:
 * RAR
 * TCC
 * TCS
+* DAA
 
 ---
 
@@ -303,6 +304,7 @@ CPU minima:
 * RAR
 * TCC
 * TCS
+* DAA
 
 
 * test LDM

@@ -19,3 +19,4 @@ func RAL() byte       { return OP_RAL }
 func RAR() byte       { return OP_RAR }
 func TCC() byte       { return OP_TCC }
 func TCS() byte       { return OP_TCS }
+func DAA() byte       { return OP_DAA }

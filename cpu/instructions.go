@@ -149,6 +149,16 @@ func (c *CPU4004) Execute(op byte) error {
 		}
 		c.C = false
 
+	// DAA: Decimal Adjust Accumulator, regola il valore dell'accumulatore (A) per ottenere un risultato corretto in formato BCD dopo un'addizione o sottrazione
+	// Se il carry (C) è true o A è maggiore di 9, aggiunge 6 a A per correggere il risultato in BCD e imposta C a true se c'è stato un overflow oltre 0x0F
+	// Ad esempio, se A = 0x09 e C = false, dopo DAA, A sarà 0x09 (9) e C sarà false (nessuna correzione necessaria)
+	// Se A = 0x0A (10) e C = false, dopo DAA, A sarà 0x00 (0) e C sarà true (correzione necessaria perché 10 non è un singolo digit BCD)
+	case op == OP_DAA:
+		if c.C || c.A > 9 {
+			c.A = nibble(c.A + 6)
+			c.C = true
+		}
+
 	default:
 		return fmt.Errorf("opcode non implementato: 0x%02X", op)
 	}

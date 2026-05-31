@@ -513,3 +513,48 @@ func TestTCSWithCarryClear(t *testing.T) {
 		t.Error("C = true, want false")
 	}
 }
+
+func TestDAANoAdjust(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 7
+	c.C = false
+	if err := c.Execute(DAA()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 7 {
+		t.Errorf("A = %d, want 7", c.A)
+	}
+	if c.C {
+		t.Error("C = true, want false")
+	}
+}
+
+func TestDAAInvalidBCD(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 13 // 8+5, risultato invalido BCD
+	c.C = false
+	if err := c.Execute(DAA()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 3 {
+		t.Errorf("A = %d, want 3", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true")
+	}
+}
+
+func TestDAAWithCarry(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 1 // 9+8=17 → A=1, C=true dopo ADD
+	c.C = true
+	if err := c.Execute(DAA()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 7 {
+		t.Errorf("A = %d, want 7", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true")
+	}
+}

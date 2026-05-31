@@ -46,4 +46,5 @@ const (
 	OP_RAR = 0xF6
 	OP_TCC = 0xF7
 	OP_TCS = 0xF9
+	OP_DAA = 0xFB
 )
