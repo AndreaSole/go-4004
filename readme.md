@@ -279,6 +279,7 @@ CPU minima:
 * XCH
 * INC
 * ADD
+* SUB
 
 
 * test LDM
@@ -288,6 +289,8 @@ CPU minima:
 * test ADD
 * test carry
 * test NOP
+* test SUB
+* test SUB con borrow
 
 ## Step futuri
 

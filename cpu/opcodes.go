@@ -34,4 +34,5 @@ const (
 	OP_LD  = 0xA0
 	OP_XCH = 0xB0
 	OP_LDM = 0xD0
+	OP_SUB = 0x90
 )

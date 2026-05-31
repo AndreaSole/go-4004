@@ -188,3 +188,33 @@ func TestLD(t *testing.T) {
 		t.Fatalf("expected R2 unchanged, got R2=%d", c.R[R2])
 	}
 }
+
+// TestSUB verifica che l'istruzione SUB sottragga correttamente il valore di un registro (Rn) dall'accumulatore (A) e aggiorni il carry (C) di conseguenza
+// Ad esempio, se A = 7 e R2 = 3, dopo SUB R2, A dovrebbe essere 4 e C dovrebbe essere false, poiché non c'è borrow
+func TestSUB(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 7
+	c.R[R2] = 3
+	c.Execute(SUB(R2))
+	if c.A != 4 {
+		t.Errorf("A = %d, want 4", c.A)
+	}
+	if c.C != false {
+		t.Errorf("C = true, want false")
+	}
+}
+
+// TestSUBWithBorrow verifica che l'istruzione SUB gestisca correttamente il borrow quando il valore del registro (Rn) è maggiore dell'accumulatore (A)
+// Ad esempio, se A = 3 e R2 = 7, dopo SUB R2, A dovrebbe essere 12 (nibble(-4)) e C dovrebbe essere true, poiché c'è un borrow
+func TestSUBWithBorrow(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 3
+	c.R[R2] = 7
+	c.Execute(SUB(R2))
+	if c.A != 12 {
+		t.Errorf("A = %d, want 12", c.A)
+	} // 3 - 7 = -4 → nibble(12)
+	if c.C != true {
+		t.Errorf("C = false, want true")
+	}
+}

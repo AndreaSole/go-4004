@@ -15,7 +15,6 @@ func (c *CPU4004) Execute(op byte) error {
 		// Non fa nulla, semplicemente incrementa il program counter
 
 	case op&0xF0 == OP_LDM:
-		// LDM data: carica valore immediato in A
 		// LDM 0-15: carica il valore immediato (0-15) nell'accumulatore (A)
 		c.A = nibble(low)
 
@@ -59,6 +58,18 @@ func (c *CPU4004) Execute(op byte) error {
 
 		// Il carry è true se il risultato dell'addizione supera 0x0F (15), altrimenti è false
 		c.C = result > 0x0F
+
+	// SUB R0-R15: sottrae il valore del registro specificato (R0-R15) dall'accumulatore (A) considerando il borrow (carry)
+	// La formula 16 + A - Rr - borrow evita underflow su uint8. Se il risultato è < 16, significa che senza il "prestito del 16" sarebbe stato negativo → borrow avvenuto → C=1.
+	case op&0xF0 == OP_SUB:
+		n := low
+		borrow := uint8(0)
+		if c.C {
+			borrow = 1
+		}
+		sum := uint8(16) + c.A - c.R[n] - borrow
+		c.A = nibble(sum)
+		c.C = sum < 16
 
 	default:
 		return fmt.Errorf("opcode non implementato: 0x%02X", op)
