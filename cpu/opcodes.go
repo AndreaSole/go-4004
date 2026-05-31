@@ -42,4 +42,6 @@ const (
 	OP_CLC = 0xF1
 	OP_STC = 0xFA
 	OP_CMC = 0xF3
+	OP_RAL = 0xF5
+	OP_RAR = 0xF6
 )

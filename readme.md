@@ -48,6 +48,9 @@ Istruzioni implementate:
 * CLC
 * STC
 * CMC
+* RAL
+* RAR
+
 ---
 
 # Obiettivo architetturale
@@ -294,6 +297,8 @@ CPU minima:
 * CLC
 * STC
 * CMC
+* RAL
+* RAR
 
 
 * test LDM

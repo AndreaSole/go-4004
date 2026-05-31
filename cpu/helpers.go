@@ -28,3 +28,7 @@ func CLC() byte { return OP_CLC }
 func STC() byte { return OP_STC }
 
 func CMC() byte { return OP_CMC }
+
+func RAL() byte { return OP_RAL }
+
+func RAR() byte { return OP_RAR }

@@ -105,6 +105,32 @@ func (c *CPU4004) Execute(op byte) error {
 	case op == OP_CMC:
 		c.C = !c.C
 
+	// RAL: Rotate Accumulator Left, ruota i bit dell'accumulatore (A) a sinistra e sposta il bit più significativo nel carry (C)
+	// Ad esempio, se A = 0b1011 (11) e C = false, dopo RAL, A sarà 0b0110 (6) e C sarà true (il bit più significativo 1 è stato spostato nel carry)
+	// Se A = 0b1011 (11) e C = true, dopo RAL, A sarà 0b0111 (7) e C sarà true (il bit più significativo 1 è stato spostato nel carry e il vecchio carry true è stato spostato in A)
+	case op == OP_RAL:
+		newCarry := c.A&0x08 != 0
+		oldCarry := uint8(0)
+		if c.C {
+			oldCarry = 1
+		}
+		// La rotazione a sinistra sposta i bit di A a sinistra e inserisce il vecchio carry nel bit meno significativo
+		c.A = nibble(c.A<<1) | oldCarry
+		c.C = newCarry
+
+	// RAR: Rotate Accumulator Right, ruota i bit dell'accumulatore (A) a destra e sposta il bit più significativo nel carry (C)
+	// Ad esempio, se A = 0b1011 (11) e C = false, dopo RAR, A sarà 0b1101 (13) e C sarà false (il bit più significativo 1 è stato spostato nel carry)
+	// Se A = 0b1011 (11) e C = true, dopo RAR, A sarà 0b1101 (13) e C sarà true (il bit più significativo 1 è stato spostato nel carry e il vecchio carry true è stato spostato in A)
+	case op == OP_RAR:
+		newCarry := c.A&0x01 != 0
+		oldCarry := uint8(0)
+		if c.C {
+			oldCarry = 1
+		}
+		// La rotazione a destra sposta i bit di A a destra e inserisce il vecchio carry nel bit più significativo
+		c.A = (c.A >> 1) | (oldCarry << 3)
+		c.C = newCarry
+
 	default:
 		return fmt.Errorf("opcode non implementato: 0x%02X", op)
 	}

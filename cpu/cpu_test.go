@@ -366,3 +366,90 @@ func TestCMCSetToTrue(t *testing.T) {
 		t.Error("C = false, want true")
 	}
 }
+
+// TestRAL verifica che l'istruzione RAL ruoti correttamente i bit dell'accumulatore (A) a sinistra e sposti il bit più significativo nel carry (C)
+// Ad esempio, se A = 0b0110 (6) e C = false, dopo RAL, A dovrebbe essere 0b1100 (12) e C dovrebbe essere true (il bit più significativo 1 è stato spostato nel carry)
+func TestRAL(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 0b0110 // 6
+	c.C = false
+	if err := c.Execute(RAL()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 0b1100 {
+		t.Errorf("A = %04b, want 1100", c.A)
+	}
+	if c.C {
+		t.Error("C = true, want false")
+	}
+}
+
+// TestRALCarryIn verifica che l'istruzione RAL consideri correttamente il carry esistente durante la rotazione a sinistra
+// Ad esempio, se A = 0b0110 (6) e C = true, dopo RAL, A dovrebbe essere 0b1101 (13) e C dovrebbe essere true (il bit più significativo 1 è stato spostato nel carry e il vecchio carry true è stato spostato in A)
+func TestRALCarryIn(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 0b0110 // 6
+	c.C = true
+	if err := c.Execute(RAL()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 0b1101 {
+		t.Errorf("A = %04b, want 1101", c.A)
+	}
+	if c.C {
+		t.Error("C = true, want false")
+	}
+}
+
+// TestRALCarryOut verifica che l'istruzione RAL gestisca correttamente il carry quando il bit più significativo di A è 1o quando il vecchio carry è true
+// Ad esempio, se A = 0b1010 (10) e C = false, dopo RAL, A dovrebbe essere 0b0100 (4) e C dovrebbe essere true (il bit più significativo 1 è stato spostato nel carry)
+// Se A = 0b1010 (10) e C = true, dopo RAL, A dovrebbe essere 0b0101 (5) e C dovrebbe essere true (il bit più significativo 1 è stato spostato nel carry e il vecchio carry true è stato spostato in A)
+func TestRALCarryOut(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 0b1010 // 10
+	c.C = false
+	if err := c.Execute(RAL()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 0b0100 {
+		t.Errorf("A = %04b, want 0100", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true")
+	}
+}
+
+// TestRAR verifica che l'istruzione RAR ruoti correttamente i bit dell'accumulatore (A) a destra e sposti il bit più significativo nel carry (C)
+// Ad esempio, se A = 0b0110 (6) e C = false, dopo RAR, A dovrebbe essere 0b0011 (3) e C dovrebbe essere false (il bit più significativo 0 è stato spostato nel carry)
+func TestRAR(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 0b0110 // 6
+	c.C = false
+	if err := c.Execute(RAR()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 0b0011 {
+		t.Errorf("A = %04b, want 0011", c.A)
+	}
+	if c.C {
+		t.Error("C = true, want false")
+	}
+}
+
+// TestRARCarryOut verifica che l'istruzione RAR gestisca correttamente il carry quando il bit più significativo di A è 1o quando il vecchio carry è true
+// Ad esempio, se A = 0b0101 (5) e C = false, dopo RAR, A dovrebbe essere 0b0010 (2) e C dovrebbe essere true (il bit più significativo 1 è stato spostato nel carry)
+// Se A = 0b0101 (5) e C = true, dopo RAR, A dovrebbe essere 0b0011 (3) e C dovrebbe essere true (il bit più significativo 1 è stato spostato nel carry e il vecchio carry true è stato spostato in A)
+func TestRARCarryOut(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 0b0101 // 5
+	c.C = false
+	if err := c.Execute(RAR()); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 0b0010 {
+		t.Errorf("A = %04b, want 0010", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true")
+	}
+}

@@ -13,11 +13,12 @@ func main() {
 	// 30 → R0=3 (decine), R1=0 (unità)
 	// 18 → R2=1 (decine), R3=8 (unità)
 
+	// moltiplica 3 per 2 usando RAL (shift left = *2)
 	program := []byte{
-		cpu.CLC(), // C = false
-		cpu.STC(), // C = true
-		cpu.CMC(), // C = false
-		cpu.CMC(), // C = true
+		cpu.LDM(3), // A = 0011 (3)
+		cpu.CLC(),  // C = false
+		cpu.RAL(),  // A = 0110 (6), C = false
+		cpu.RAL(),  // A = 1100 (12), C = false
 	}
 
 	fmt.Println("=== BEFORE ===")
