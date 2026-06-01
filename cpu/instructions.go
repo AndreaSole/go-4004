@@ -150,7 +150,7 @@ func (c *CPU4004) Execute(op byte) error {
 	// Usato prima delle istruzioni RAM (WRM, RDM, ecc.) per indicare quale banco di chip Intel 4002 risponde.
 	// Non modifica A né il carry.
 	case op == OP_DCL:
-		c.CL = c.A
+		c.CL = c.A & 0x07 // CL può essere solo 0-7, quindi prendiamo solo i 3 bit meno significativi di A
 
 	// KBP: Keyboard Process, converte un valore one-hot dell'accumulatore nel numero di posizione del bit attivo.
 	// Usato per decodificare la colonna attiva durante la scansione della tastiera a matrice.

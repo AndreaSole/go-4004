@@ -419,8 +419,6 @@ func TestRALCarryOut(t *testing.T) {
 	}
 }
 
-// TestRAR verifica che l'istruzione RAR ruoti correttamente i bit dell'accumulatore (A) a destra e sposti il bit più significativo nel carry (C)
-// Ad esempio, se A = 0b0110 (6) e C = false, dopo RAR, A dovrebbe essere 0b0011 (3) e C dovrebbe essere false (il bit più significativo 0 è stato spostato nel carry)
 func TestRAR(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 0b0110 // 6
@@ -436,9 +434,6 @@ func TestRAR(t *testing.T) {
 	}
 }
 
-// TestRARCarryOut verifica che l'istruzione RAR gestisca correttamente il carry quando il bit più significativo di A è 1o quando il vecchio carry è true
-// Ad esempio, se A = 0b0101 (5) e C = false, dopo RAR, A dovrebbe essere 0b0010 (2) e C dovrebbe essere true (il bit più significativo 1 è stato spostato nel carry)
-// Se A = 0b0101 (5) e C = true, dopo RAR, A dovrebbe essere 0b0011 (3) e C dovrebbe essere true (il bit più significativo 1 è stato spostato nel carry e il vecchio carry true è stato spostato in A)
 func TestRARCarryOut(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 0b0101 // 5
