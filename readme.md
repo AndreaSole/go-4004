@@ -53,6 +53,7 @@ Istruzioni implementate:
 * TCC
 * TCS
 * DAA
+* KBP
 
 ---
 
@@ -305,6 +306,7 @@ CPU minima:
 * TCC
 * TCS
 * DAA
+* KBP
 
 
 * test LDM

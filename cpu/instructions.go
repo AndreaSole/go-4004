@@ -146,6 +146,26 @@ func (c *CPU4004) Execute(op byte) error {
 			c.C = true
 		}
 
+	// KBP: Keyboard Process, converte un valore one-hot dell'accumulatore nel numero di posizione del bit attivo.
+	// Usato per decodificare la colonna attiva durante la scansione della tastiera a matrice.
+	// Se A ha più di un bit a 1 (input non valido), imposta A = 0xF (errore).
+	// Il carry non viene modificato.
+	case op == OP_KBP:
+		switch c.A {
+		case 0b0000:
+			c.A = 0
+		case 0b0001:
+			c.A = 1
+		case 0b0010:
+			c.A = 2
+		case 0b0100:
+			c.A = 3
+		case 0b1000:
+			c.A = 4
+		default:
+			c.A = 0xF
+		}
+
 	default:
 		return fmt.Errorf("opcode non implementato: 0x%02X", op)
 	}

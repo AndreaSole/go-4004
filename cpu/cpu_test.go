@@ -574,6 +574,46 @@ func TestRARCarryIn(t *testing.T) {
 	}
 }
 
+// TestKBP verifica la conversione one-hot per tutti i casi validi e non validi
+func TestKBP(t *testing.T) {
+	tests := []struct {
+		input    uint8
+		expected uint8
+	}{
+		{0b0000, 0},
+		{0b0001, 1},
+		{0b0010, 2},
+		{0b0100, 3},
+		{0b1000, 4},
+		{0b0011, 0xF}, // non valido: due bit
+		{0b1111, 0xF}, // non valido: tutti i bit
+	}
+
+	for _, tt := range tests {
+		c := NewCPU4004()
+		c.A = tt.input
+		if err := c.Execute(KBP()); err != nil {
+			t.Fatalf("input=0b%04b: %v", tt.input, err)
+		}
+		if c.A != tt.expected {
+			t.Errorf("input=0b%04b: A = %d, want %d", tt.input, c.A, tt.expected)
+		}
+	}
+}
+
+// TestKBPDoesNotAffectCarry verifica che KBP non modifichi il carry
+func TestKBPDoesNotAffectCarry(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 0b0001
+	c.C = true
+	if err := c.Execute(KBP()); err != nil {
+		t.Fatal(err)
+	}
+	if !c.C {
+		t.Error("C = false, want true (KBP should not affect carry)")
+	}
+}
+
 func TestSUBWithInitialBorrow(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 5

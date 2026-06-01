@@ -47,4 +47,5 @@ const (
 	OP_TCC = 0xF7
 	OP_TCS = 0xF9
 	OP_DAA = 0xFB
+	OP_KBP = 0xFC
 )

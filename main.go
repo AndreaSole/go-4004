@@ -8,13 +8,20 @@ import (
 func main() {
 	c := cpu.NewCPU4004()
 
-	// addizione BCD: 8 + 5 = 13 (decimale)
+	// KBP: decodifica tasti da one-hot a posizione
+	// Simula la lettura di tre colonne di tastiera
 	program := []byte{
-		cpu.LDM(8),      // A = 8
-		cpu.XCH(cpu.R0), // R0 = 8
-		cpu.LDM(5),      // A = 5
-		cpu.ADD(cpu.R0), // A = 13 (0xD), C = false — risultato binario
-		cpu.DAA(),       // A = 3, C = true  — corretto in BCD
+		cpu.LDM(0b0001), // A = colonna 1 premuta (one-hot)
+		cpu.KBP(),       // A = 1
+		cpu.XCH(cpu.R0), // salva in R0
+
+		cpu.LDM(0b0100), // A = colonna 3 premuta (one-hot)
+		cpu.KBP(),       // A = 3
+		cpu.XCH(cpu.R1), // salva in R1
+
+		cpu.LDM(0b0110), // A = due colonne (input non valido)
+		cpu.KBP(),       // A = 0xF (errore)
+		cpu.XCH(cpu.R2), // salva in R2
 	}
 
 	fmt.Println("=== BEFORE ===")
