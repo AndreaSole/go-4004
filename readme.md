@@ -323,6 +323,10 @@ CPU minima:
 * test IAC
 * test IAC con overflow
 
+* ROM virtuale
+* ciclo fetch-execute (Step)
+* PC a 12 bit
+
 ## Step futuri
 
 * tutte le 46 istruzioni Intel 4004

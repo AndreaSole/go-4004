@@ -26,3 +26,12 @@ func NewCPU4004() *CPU4004 {
 func nibble(v uint8) uint8 {
 	return v & 0x0F
 }
+
+// Step esegue un singolo ciclo fetch-execute:
+// legge l'opcode dalla ROM all'indirizzo PC, incrementa PC, esegue l'istruzione.
+// PC è mascherato a 12 bit (range 0x000–0xFFF) come sul 4004 reale.
+func (c *CPU4004) Step(rom *ROM) error {
+	op := rom.Data[c.PC]
+	c.PC = (c.PC + 1) & 0x0FFF
+	return c.Execute(op)
+}

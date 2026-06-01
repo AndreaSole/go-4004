@@ -8,31 +8,32 @@ import (
 func main() {
 	c := cpu.NewCPU4004()
 
-	// DCL: seleziona il banco RAM attivo tramite il registro CL
-	// Seleziona banco RAM 2, poi torna al banco 0
-	program := []byte{
-		cpu.LDM(2), // A = 2
-		cpu.DCL(),  // CL = 2 — banco RAM 2 attivo
-		cpu.LDM(0), // A = 0
-		cpu.DCL(),  // CL = 0 — banco RAM 0 attivo
-	}
+	// 30 + 18 = 48 (BCD, cifra per cifra)
+	rom := cpu.NewROM([]byte{
+		cpu.LDM(3), cpu.XCH(cpu.R0), // R0 = 3 (decine di 30)
+		cpu.LDM(0), cpu.XCH(cpu.R1), // R1 = 0 (unità di 30)
+		cpu.LDM(1), cpu.XCH(cpu.R2), // R2 = 1 (decine di 18)
+		cpu.LDM(8), cpu.XCH(cpu.R3), // R3 = 8 (unità di 18)
+
+		cpu.LD(cpu.R1), cpu.ADD(cpu.R3), cpu.DAA(), cpu.XCH(cpu.R5), // unità: 0+8=8
+		cpu.LD(cpu.R0), cpu.ADD(cpu.R2), cpu.DAA(), cpu.XCH(cpu.R4), // decine: 3+1=4
+	})
 
 	fmt.Println("=== BEFORE ===")
 	printCPU(c)
 
-	for i, op := range program {
-		fmt.Printf("\nSTEP %d\n", i)
-		fmt.Printf("Executing opcode: 0x%02X\n", op)
-
-		if err := c.Execute(op); err != nil {
+	for i := range rom.Data {
+		fmt.Printf("\nSTEP %d — PC=%03X OP=0x%02X\n", i, c.PC, rom.Data[c.PC])
+		if err := c.Step(rom); err != nil {
 			panic(err)
 		}
-
 		printCPU(c)
 	}
 
 	fmt.Println("\n=== FINAL STATE ===")
 	printCPU(c)
+	fmt.Printf("Risultato BCD: R4=%d (decine) R5=%d (unità) → %d%d\n",
+		c.R[cpu.R4], c.R[cpu.R5], c.R[cpu.R4], c.R[cpu.R5])
 }
 
 func printCPU(c *cpu.CPU4004) {

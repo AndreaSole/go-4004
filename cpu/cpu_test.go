@@ -651,3 +651,44 @@ func TestSUBWithInitialBorrow(t *testing.T) {
 		t.Error("C = true, want false")
 	}
 }
+
+func TestStepExecutesOpcode(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM([]byte{LDM(7)})
+
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 7 {
+		t.Errorf("A = %d, want 7", c.A)
+	}
+}
+
+func TestStepIncreasesPC(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM([]byte{LDM(1), LDM(2), LDM(3)})
+
+	c.Step(rom)
+	c.Step(rom)
+	c.Step(rom)
+
+	if c.PC != 3 {
+		t.Errorf("PC = %d, want 3", c.PC)
+	}
+	if c.A != 3 {
+		t.Errorf("A = %d, want 3", c.A)
+	}
+}
+
+func TestStepPCWrapsAt12Bit(t *testing.T) {
+	c := NewCPU4004()
+	c.PC = 0x0FFF
+	rom := NewROM(make([]byte, 0x1000)) // 4096 byte a zero (NOP)
+
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0 {
+		t.Errorf("PC = 0x%X, want 0x000 (wrap)", c.PC)
+	}
+}
