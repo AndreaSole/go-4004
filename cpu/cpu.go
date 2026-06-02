@@ -19,10 +19,18 @@ type CPU4004 struct {
 	Stack [3]uint16 // indirizzi di ritorno salvati da JMS, ripristinati da BBL
 	SP    uint8     // stack pointer — conta i livelli occupati (0 = stack vuoto)
 
-	// SRCAddr è l'indirizzo RAM/ROM selezionato dall'istruzione SRC.
-	// Il nibble alto (bit 7-4) identifica il chip/banco RAM; il nibble basso
-	// (bit 3-0) identifica il registro all'interno del chip.
-	// Usato dalle istruzioni I/O del gruppo 0xEX (WRM, RDM, ecc.) — Step 7.
+	// SRCAddr conserva l'indirizzo inviato dall'istruzione SRC sul bus esterno.
+	//
+	// Sul 4004 reale, SRC non scrive in nessun registro interno della CPU:
+	// mette il valore sui pin del bus esterno, e il chip RAM Intel 4002 collegato
+	// lo riceve e lo salva al suo interno. L'indirizzo non vive nella CPU, vive nel chip RAM.
+	//
+	// Nell'emulatore non esiste un bus fisico, quindi conserviamo qui il valore
+	// come comodo placeholder. Quando verrà implementata la struct RAM,
+	// SRCAddr verrà spostato dentro RAM — che è il posto architetturalmente corretto —
+	// e questo campo verrà rimosso dalla CPU.
+	//
+	// Formato: nibble alto (bit 7-4) = chip/banco RAM, nibble basso (bit 3-0) = registro nel chip.
 	SRCAddr uint8
 }
 
