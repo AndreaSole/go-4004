@@ -25,12 +25,13 @@ Il progetto è sviluppato con focus su:
 
 Attualmente il progetto include:
 
-* CPU minima Intel 4004
-* registri
-* accumulator
-* carry
-* decoder opcode base
+* CPU Intel 4004 completa (21/46 istruzioni)
+* registri, accumulator, carry, command line
+* decoder opcode
 * helper functions stile mini assembler
+* ROM virtuale
+* ciclo fetch-execute (`Step`)
+* Program Counter a 12 bit (range 0x000–0xFFF)
 
 Istruzioni implementate:
 
@@ -71,16 +72,21 @@ La calcolatrice sarà un programma caricato in una ROM virtuale, proprio come ne
 # Struttura progetto
 
 ```text
-go4004/
+go-4004/
 ├── go.mod
 ├── main.go
-├── README.md
+├── readme.md
+├── docs/
+│   └── bcd.md
 └── cpu/
     ├── cpu.go
     ├── opcodes.go
     ├── helpers.go
     ├── instructions.go
-    └── cpu_test.go
+    ├── rom.go
+    ├── cpu_test.go
+    ├── instructions_test.go
+    └── rom_test.go
 ```
 
 ---
