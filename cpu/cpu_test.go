@@ -23,4 +23,15 @@ func TestNewCPU4004(t *testing.T) {
 			t.Errorf("R[%d] = %d, want 0", i, v)
 		}
 	}
+	if c.SP != 0 {
+		t.Errorf("SP = %d, want 0", c.SP)
+	}
+	for i, v := range c.Stack {
+		if v != 0 {
+			t.Errorf("Stack[%d] = 0x%03X, want 0", i, v)
+		}
+	}
+	if c.SRCAddr != 0 {
+		t.Errorf("SRCAddr = 0x%02X, want 0", c.SRCAddr)
+	}
 }

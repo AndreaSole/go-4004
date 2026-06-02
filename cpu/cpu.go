@@ -1,5 +1,7 @@
 package cpu
 
+import "fmt"
+
 // CPU4004 rappresenta lo stato interno del processore Intel 4004.
 //
 // Il 4004 è un processore a 4 bit: A, i registri e le operazioni ALU
@@ -56,26 +58,43 @@ func nibble(v uint8) uint8 {
 // PC è mascherato a 12 bit (range 0x000–0xFFF) come sul 4004 reale.
 // Le istruzioni a 2 byte (JCN, FIM, JUN, JMS, ISZ) leggono un secondo byte prima di eseguire.
 func (c *CPU4004) Step(rom *ROM) error {
+	if int(c.PC) >= len(rom.Data) {
+		return fmt.Errorf("PC 0x%03X fuori dalla ROM (dimensione %d)", c.PC, len(rom.Data))
+	}
+	// page viene salvato PRIMA dell'incremento: JCN, ISZ e FIN devono usare
+	// la pagina dell'istruzione corrente, non quella del byte successivo.
+	page := c.PC & 0x0F00
 	op := rom.Data[c.PC]
 	c.PC = (c.PC + 1) & 0x0FFF
 
 	switch op & 0xF0 {
 	case OP_JCN, OP_JUN, OP_JMS, OP_ISZ:
+		if int(c.PC) >= len(rom.Data) {
+			return fmt.Errorf("PC 0x%03X fuori dalla ROM durante fetch secondo byte", c.PC)
+		}
 		arg := rom.Data[c.PC]
 		c.PC = (c.PC + 1) & 0x0FFF
-		return c.executeWithArg(op, arg)
+		return c.executeWithArg(op, arg, page)
 	case OP_FIM & 0xF0: // 0x20: FIM (bit 0 = 0, 2 byte) o SRC (bit 0 = 1, 1 byte)
 		if op&0x01 == 0 {
+			if int(c.PC) >= len(rom.Data) {
+				return fmt.Errorf("PC 0x%03X fuori dalla ROM durante fetch secondo byte FIM", c.PC)
+			}
 			arg := rom.Data[c.PC]
 			c.PC = (c.PC + 1) & 0x0FFF
-			return c.executeWithArg(op, arg)
+			return c.executeWithArg(op, arg, page)
 		}
 		return c.Execute(op) // SRC: 1 byte
 	case OP_FIN & 0xF0: // 0x30: FIN (bit 0 = 0) o JIN (bit 0 = 1)
 		if op&0x01 == 0 {
-			// FIN Rr: fetch indirect da ROM usando R0:R1 come indirizzo (nella pagina corrente)
+			// FIN Rr: fetch indirect da ROM usando R0:R1 come indirizzo nella pagina di FIN.
+			// Usa `page` (calcolato prima dell'incremento) per restare nella pagina corretta
+			// anche quando FIN si trova all'ultimo byte di una pagina.
 			rp := op & 0x0E // primo registro della coppia (sempre pari)
-			addr := (c.PC & 0x0F00) | (uint16(c.R[0]) << 4) | uint16(c.R[1])
+			addr := page | (uint16(c.R[0]) << 4) | uint16(c.R[1])
+			if int(addr) >= len(rom.Data) {
+				return fmt.Errorf("indirizzo FIN 0x%03X fuori dalla ROM", addr)
+			}
 			data := rom.Data[addr]
 			c.R[rp] = data >> 4
 			c.R[rp+1] = data & 0x0F
@@ -87,9 +106,7 @@ func (c *CPU4004) Step(rom *ROM) error {
 	}
 }
 
-// Push è la versione esportata di push, usata da main e dai test di integrazione
-// finché JMS non sarà implementato. Simula il salvataggio dell'indirizzo di ritorno
-// che normalmente avviene automaticamente con l'istruzione JMS.
+// Push è la versione esportata di push, usata dai test di integrazione.
 func (c *CPU4004) Push(addr uint16) { c.push(addr) }
 
 // push salva un indirizzo sullo stack prima di un salto a subroutine (JMS).
@@ -102,7 +119,12 @@ func (c *CPU4004) push(addr uint16) {
 
 // pop recupera l'indirizzo di ritorno dallo stack (usato da BBL).
 // Decrementa SP prima di leggere, speculare a push.
+// Se lo stack è vuoto (SP==0) restituisce 0: sul 4004 reale il comportamento
+// è indefinito; nell'emulatore scegliamo un risultato deterministico.
 func (c *CPU4004) pop() uint16 {
+	if c.SP == 0 {
+		return 0
+	}
 	c.SP--
 	return c.Stack[c.SP%3]
 }

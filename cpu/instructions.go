@@ -4,7 +4,10 @@ import "fmt"
 
 // executeWithArg esegue le istruzioni a 2 byte del 4004.
 // op è il primo byte (opcode + nibble), arg è il secondo byte già letto dalla ROM.
-func (c *CPU4004) executeWithArg(op, arg byte) error {
+// page sono i 4 bit alti dell'indirizzo dell'istruzione (salvati prima di incrementare PC):
+// JCN e ISZ costruiscono il target come page|arg, così restano nella pagina corretta
+// anche quando l'istruzione si trova agli ultimi byte di una pagina.
+func (c *CPU4004) executeWithArg(op, arg byte, page uint16) error {
 	high := op & 0x0F // nibble alto dell'indirizzo o numero di registro
 
 	switch op & 0xF0 {
@@ -43,15 +46,16 @@ func (c *CPU4004) executeWithArg(op, arg byte) error {
 			taken = !taken // C4: NOT della condizione
 		}
 		if taken {
-			// L'indirizzo di salto condivide i 4 bit alti con il PC corrente (stessa pagina)
-			c.PC = (c.PC & 0x0F00) | uint16(arg)
+			// L'indirizzo di salto condivide i 4 bit alti con la pagina dell'istruzione JCN.
+			c.PC = page | uint16(arg)
 		}
 
-	// ISZ Rr,a: incrementa il registro Rr; se il risultato è 0, salta a 'a' (stesso meccanismo di JCN).
+	// ISZ Rr,a: incrementa il registro Rr; se il risultato è ≠ 0, salta a 'a' (continua il loop);
+	// se il risultato è 0, prosegue in sequenza (esce dal loop). Non modifica il carry.
 	case OP_ISZ:
 		c.R[high] = nibble(c.R[high] + 1)
 		if c.R[high] != 0 {
-			c.PC = (c.PC & 0x0F00) | uint16(arg)
+			c.PC = page | uint16(arg)
 		}
 
 	// FIM Rr,d: carica il byte immediato 'd' nella coppia di registri Rr/Rr+1.
@@ -90,7 +94,7 @@ func (c *CPU4004) Execute(op byte) error {
 	case op&0xF0 == OP_XCH:
 		// XCH R0-R15: scambia il valore dell'accumulatore (A) con quello del registro specificato (R0-R15)
 		// Ad esempio, se A = 0x02 e R0 = 0x00, dopo XCH R0, A sarà 0x00 e R0 sarà 0x02
-		c.A, c.R[low] = c.R[low], c.A
+		c.A, c.R[low] = nibble(c.R[low]), c.A
 
 	case op&0xF0 == OP_INC:
 		// INC R0-R15: incrementa il valore del registro specificato (R0-R15) di 1

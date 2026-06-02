@@ -611,6 +611,17 @@ func TestDCLDoesNotAffectCarry(t *testing.T) {
 	}
 }
 
+func TestDCLMasksHighBits(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 9 // 0b1001 → & 0x07 = 1
+	if err := c.Execute(DCL()); err != nil {
+		t.Fatal(err)
+	}
+	if c.CL != 1 {
+		t.Errorf("CL = %d, want 1 (A=9, 9 & 0x07 = 1)", c.CL)
+	}
+}
+
 // --- BBL ---
 
 func TestBBLRestoresPC(t *testing.T) {
@@ -650,6 +661,21 @@ func TestBBLDoesNotAffectCarry(t *testing.T) {
 	}
 	if !c.C {
 		t.Error("C = false, want true (BBL should not affect carry)")
+	}
+}
+
+func TestBBLOnEmptyStackReturnsZero(t *testing.T) {
+	c := NewCPU4004()
+	// SP=0: BBL senza JMS precedente — comportamento indefinito sull'hardware,
+	// l'emulatore restituisce PC=0 senza underflow di SP.
+	if err := c.Execute(BBL(0)); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0 {
+		t.Errorf("PC = 0x%03X, want 0x000", c.PC)
+	}
+	if c.SP != 0 {
+		t.Errorf("SP = %d, want 0 (non deve andare in underflow)", c.SP)
 	}
 }
 
@@ -831,6 +857,21 @@ func TestISZJumpWhenNotZero(t *testing.T) {
 	}
 	if c.PC != 0x050 {
 		t.Errorf("PC = 0x%03X, want 0x050 (jump because not zero)", c.PC)
+	}
+}
+
+func TestISZDoesNotAffectCarry(t *testing.T) {
+	c := NewCPU4004()
+	c.C = true
+	c.R[R2] = 3
+	rom := NewROM(make([]byte, 4096))
+	rom.Data[0x000] = ISZ(R2)
+	rom.Data[0x001] = 0x50
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if !c.C {
+		t.Error("C = false, want true (ISZ non deve modificare il carry)")
 	}
 }
 
