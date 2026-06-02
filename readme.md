@@ -25,37 +25,32 @@ Il progetto è sviluppato con focus su:
 
 Attualmente il progetto include:
 
-* CPU Intel 4004 completa (21/46 istruzioni)
+* CPU Intel 4004 completa (30/46 istruzioni)
 * registri, accumulator, carry, command line
-* decoder opcode
+* decoder opcode con supporto istruzioni a 2 byte
 * helper functions stile mini assembler
 * ROM virtuale
 * ciclo fetch-execute (`Step`)
 * Program Counter a 12 bit (range 0x000–0xFFF)
+* stack hardware a 3 livelli (JMS/BBL)
 
 Istruzioni implementate:
 
-* NOP
-* LDM
-* LD
-* XCH
-* INC
-* ADD
-* SUB
-* IAC
-* DAC
-* CMA
-* CLB
-* CLC
-* STC
-* CMC
-* RAL
-* RAR
-* TCC
-* TCS
-* DAA
-* KBP
-* DCL
+Gruppo registro (completo):
+* NOP, LDM, LD, XCH, INC, ADD, SUB, BBL
+
+Gruppo accumulatore (completo):
+* IAC, DAC, CMA, CLB, CLC, STC, CMC, RAL, RAR, TCC, TCS, DAA, KBP, DCL
+
+Gruppo salti (completo):
+* JUN — salto incondizionale a 12 bit (2 byte)
+* JMS — salto a subroutine con push stack (2 byte)
+* JCN — salto condizionale (carry, A==0, NOT) (2 byte)
+* ISZ — incrementa registro, salta se != 0 (2 byte)
+* FIM — fetch immediato in coppia di registri (2 byte)
+* SRC — imposta indirizzo RAM per I/O (1 byte)
+* FIN — fetch indiretto da ROM via R0:R1 (1 byte)
+* JIN — salto indiretto via coppia di registri (1 byte)
 
 ---
 
@@ -335,17 +330,11 @@ CPU minima:
 
 ## Step futuri
 
-* tutte le 46 istruzioni Intel 4004
-* ROM virtuale
-* fetch/decode/execute reale
-* stack
-* RAM virtuale
-* I/O virtuale
-* debugger
-* assembler minimale
-* firmware calcolatrice
-* display virtuale
-* tastiera virtuale
+* Step 7 — RAM virtuale (chip Intel 4002: 4 banchi, istruzioni 0xEX)
+* Step 8 — I/O virtuale (tastiera, display)
+* Step 9-13 — firmware calcolatrice completa
+* Step 14 — debugger (trace PC, opcode, registri)
+* Step 15 — assembler minimale (testo → ROM binaria)
 
 ---
 

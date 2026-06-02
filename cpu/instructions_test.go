@@ -652,3 +652,332 @@ func TestBBLDoesNotAffectCarry(t *testing.T) {
 		t.Error("C = false, want true (BBL should not affect carry)")
 	}
 }
+
+// --- JUN ---
+
+func TestJUN(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 4096))
+	// JUN 0x3AB: primo byte 0x43, secondo byte 0xAB
+	rom.Data[0x000] = JUN(0x3) // opcode: 0x43
+	rom.Data[0x001] = 0xAB
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x3AB {
+		t.Errorf("PC = 0x%03X, want 0x3AB", c.PC)
+	}
+}
+
+func TestJUNDoesNotModifyRegisters(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 7
+	c.C = true
+	rom := NewROM(make([]byte, 4096))
+	rom.Data[0x000] = JUN(0x0)
+	rom.Data[0x001] = 0x10
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 7 {
+		t.Errorf("A = %d, want 7 (JUN should not touch A)", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true (JUN should not touch carry)")
+	}
+}
+
+// --- JMS ---
+
+func TestJMS(t *testing.T) {
+	c := NewCPU4004()
+	c.PC = 0x100
+	rom := NewROM(make([]byte, 4096))
+	// JMS 0x2CD: primo byte 0x52, secondo byte 0xCD. PC parte da 0x100.
+	rom.Data[0x100] = JMS(0x2) // opcode: 0x52
+	rom.Data[0x101] = 0xCD
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x2CD {
+		t.Errorf("PC = 0x%03X, want 0x2CD", c.PC)
+	}
+	// L'indirizzo di ritorno deve essere 0x102 (dopo i 2 byte di JMS)
+	c.SP-- // pop manuale per verificare
+	ret := c.Stack[c.SP%3]
+	if ret != 0x102 {
+		t.Errorf("return address on stack = 0x%03X, want 0x102", ret)
+	}
+}
+
+func TestJMSAndBBLRoundtrip(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 4096))
+	// JMS a 0x010, poi BBL 3 al ritorno
+	rom.Data[0x000] = JMS(0x0) // 0x50
+	rom.Data[0x001] = 0x10
+	rom.Data[0x002] = NOP() // istruzione al ritorno
+	rom.Data[0x010] = BBL(3)
+
+	if err := c.Step(rom); err != nil { // JMS
+		t.Fatal(err)
+	}
+	if c.PC != 0x010 {
+		t.Fatalf("after JMS: PC = 0x%03X, want 0x010", c.PC)
+	}
+	if err := c.Step(rom); err != nil { // BBL 3
+		t.Fatal(err)
+	}
+	if c.PC != 0x002 {
+		t.Errorf("after BBL: PC = 0x%03X, want 0x002", c.PC)
+	}
+	if c.A != 3 {
+		t.Errorf("after BBL: A = %d, want 3", c.A)
+	}
+}
+
+// --- JCN ---
+
+func TestJCNCarrySet(t *testing.T) {
+	c := NewCPU4004()
+	c.C = true
+	rom := NewROM(make([]byte, 4096))
+	// JCN con C2=1 (salta se carry=1): cond = 0b0010 = 2
+	rom.Data[0x000] = JCN(0x2)
+	rom.Data[0x001] = 0x50 // target: pagina 0, offset 0x50
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x050 {
+		t.Errorf("PC = 0x%03X, want 0x050", c.PC)
+	}
+}
+
+func TestJCNCarryClearNoJump(t *testing.T) {
+	c := NewCPU4004()
+	c.C = false
+	rom := NewROM(make([]byte, 4096))
+	// JCN con C2=1 (salta se carry=1): carry è falso → nessun salto
+	rom.Data[0x000] = JCN(0x2)
+	rom.Data[0x001] = 0x50
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x002 { // PC avanzato di 2 (i 2 byte di JCN)
+		t.Errorf("PC = 0x%03X, want 0x002 (no jump)", c.PC)
+	}
+}
+
+func TestJCNAccZero(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 0
+	rom := NewROM(make([]byte, 4096))
+	// JCN con C3=1 (salta se A=0): cond = 0b0100 = 4
+	rom.Data[0x000] = JCN(0x4)
+	rom.Data[0x001] = 0x30
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x030 {
+		t.Errorf("PC = 0x%03X, want 0x030", c.PC)
+	}
+}
+
+func TestJCNInvertedCondition(t *testing.T) {
+	c := NewCPU4004()
+	c.C = false
+	rom := NewROM(make([]byte, 4096))
+	// JCN con C4=1 C2=1 (salta se NOT carry=1, cioè se carry=0): cond = 0b1010 = 0xA
+	rom.Data[0x000] = JCN(0xA)
+	rom.Data[0x001] = 0x40
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x040 {
+		t.Errorf("PC = 0x%03X, want 0x040 (inverted: jump because carry=0)", c.PC)
+	}
+}
+
+// --- ISZ ---
+
+func TestISZNoJumpWhenZero(t *testing.T) {
+	c := NewCPU4004()
+	c.R[R2] = 0x0F // 0xF + 1 = 0 → non salta (zero = uscita dal loop)
+	rom := NewROM(make([]byte, 4096))
+	rom.Data[0x000] = ISZ(R2)
+	rom.Data[0x001] = 0x50
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.R[R2] != 0 {
+		t.Errorf("R2 = %d, want 0", c.R[R2])
+	}
+	if c.PC != 0x002 { // nessun salto
+		t.Errorf("PC = 0x%03X, want 0x002 (no jump on zero)", c.PC)
+	}
+}
+
+func TestISZJumpWhenNotZero(t *testing.T) {
+	c := NewCPU4004()
+	c.R[R2] = 3 // 3 + 1 = 4 ≠ 0 → salta (continua il loop)
+	rom := NewROM(make([]byte, 4096))
+	rom.Data[0x000] = ISZ(R2)
+	rom.Data[0x001] = 0x50
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.R[R2] != 4 {
+		t.Errorf("R2 = %d, want 4", c.R[R2])
+	}
+	if c.PC != 0x050 {
+		t.Errorf("PC = 0x%03X, want 0x050 (jump because not zero)", c.PC)
+	}
+}
+
+// --- FIM ---
+
+func TestFIM(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 4096))
+	// FIM R0, 0xAB: R0 = 0xA, R1 = 0xB
+	rom.Data[0x000] = FIM(R0) // 0x20
+	rom.Data[0x001] = 0xAB
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.R[R0] != 0xA {
+		t.Errorf("R0 = %X, want A", c.R[R0])
+	}
+	if c.R[R1] != 0xB {
+		t.Errorf("R1 = %X, want B", c.R[R1])
+	}
+	if c.PC != 0x002 {
+		t.Errorf("PC = 0x%03X, want 0x002", c.PC)
+	}
+}
+
+func TestFIMPair4(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 4096))
+	// FIM R4, 0x37: R4 = 0x3, R5 = 0x7
+	rom.Data[0x000] = FIM(R4) // 0x24
+	rom.Data[0x001] = 0x37
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.R[R4] != 0x3 {
+		t.Errorf("R4 = %X, want 3", c.R[R4])
+	}
+	if c.R[R5] != 0x7 {
+		t.Errorf("R5 = %X, want 7", c.R[R5])
+	}
+}
+
+// --- SRC ---
+
+func TestSRC(t *testing.T) {
+	c := NewCPU4004()
+	c.R[R2] = 0x5 // chip/banco
+	c.R[R3] = 0x3 // registro RAM
+	if err := c.Execute(SRC(R2)); err != nil {
+		t.Fatal(err)
+	}
+	if c.SRCAddr != 0x53 {
+		t.Errorf("SRCAddr = 0x%02X, want 0x53", c.SRCAddr)
+	}
+}
+
+func TestSRCDoesNotModifyRegisters(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 9
+	c.C = true
+	c.R[R0] = 0x2
+	c.R[R1] = 0x7
+	if err := c.Execute(SRC(R0)); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 9 {
+		t.Errorf("A = %d, want 9 (SRC should not touch A)", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true (SRC should not touch carry)")
+	}
+	if c.R[R0] != 0x2 || c.R[R1] != 0x7 {
+		t.Error("SRC should not modify registers")
+	}
+}
+
+// --- FIN ---
+
+func TestFIN(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 4096))
+	// R0=0x5, R1=0x8 → indirizzo pagina 0: 0x058
+	// rom.Data[0x058] = 0xAB → R2=0xA, R3=0xB
+	c.R[R0] = 0x5
+	c.R[R1] = 0x8
+	rom.Data[0x000] = FIN(R2) // 0x32
+	rom.Data[0x058] = 0xAB    // byte da leggere
+	c.PC = 0x000
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.R[R2] != 0xA {
+		t.Errorf("R2 = %X, want A", c.R[R2])
+	}
+	if c.R[R3] != 0xB {
+		t.Errorf("R3 = %X, want B", c.R[R3])
+	}
+	if c.PC != 0x001 { // FIN è 1 byte: PC avanza di 1
+		t.Errorf("PC = 0x%03X, want 0x001", c.PC)
+	}
+}
+
+func TestFINDoesNotChangeR0R1(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 4096))
+	c.R[R0] = 0x2
+	c.R[R1] = 0x0
+	rom.Data[0x000] = FIN(R4) // 0x34: carica in R4/R5, non in R0/R1
+	rom.Data[0x020] = 0xCD
+	c.PC = 0x000
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.R[R0] != 0x2 || c.R[R1] != 0x0 {
+		t.Error("FIN should not modify R0/R1 (used as address, not destination)")
+	}
+	if c.R[R4] != 0xC || c.R[R5] != 0xD {
+		t.Errorf("R4=%X R5=%X, want C D", c.R[R4], c.R[R5])
+	}
+}
+
+// --- JIN ---
+
+func TestJIN(t *testing.T) {
+	c := NewCPU4004()
+	c.R[R0] = 0x7
+	c.R[R1] = 0x3
+	c.PC = 0x000
+	if err := c.Execute(JIN(R0)); err != nil {
+		t.Fatal(err)
+	}
+	// indirizzo = (0x7 << 4) | 0x3 = 0x73, pagina corrente (PC & 0x0F00 = 0x000)
+	if c.PC != 0x073 {
+		t.Errorf("PC = 0x%03X, want 0x073", c.PC)
+	}
+}
+
+func TestJINPreservesPage(t *testing.T) {
+	c := NewCPU4004()
+	c.R[R2] = 0x4
+	c.R[R3] = 0x8
+	c.PC = 0x200 // pagina 2
+	if err := c.Execute(JIN(R2)); err != nil {
+		t.Fatal(err)
+	}
+	// indirizzo = pagina 2 + (0x4 << 4 | 0x8) = 0x248
+	if c.PC != 0x248 {
+		t.Errorf("PC = 0x%03X, want 0x248", c.PC)
+	}
+}
