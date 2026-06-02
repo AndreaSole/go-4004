@@ -22,3 +22,4 @@ func TCS() byte       { return OP_TCS }
 func DAA() byte       { return OP_DAA }
 func KBP() byte       { return OP_KBP }
 func DCL() byte       { return OP_DCL }
+func BBL(v byte) byte { return OP_BBL | nibble(v) }

@@ -610,3 +610,45 @@ func TestDCLDoesNotAffectCarry(t *testing.T) {
 		t.Error("C = false, want true (DCL should not affect carry)")
 	}
 }
+
+// --- BBL ---
+
+func TestBBLRestoresPC(t *testing.T) {
+	c := NewCPU4004()
+	c.push(0x123) // simula un JMS che ha salvato l'indirizzo di ritorno
+	if err := c.Execute(BBL(5)); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x123 {
+		t.Errorf("PC = 0x%03X, want 0x123", c.PC)
+	}
+	if c.A != 5 {
+		t.Errorf("A = %d, want 5", c.A)
+	}
+}
+
+func TestBBLZero(t *testing.T) {
+	c := NewCPU4004()
+	c.push(0x050)
+	if err := c.Execute(BBL(0)); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x050 {
+		t.Errorf("PC = 0x%03X, want 0x050", c.PC)
+	}
+	if c.A != 0 {
+		t.Errorf("A = %d, want 0", c.A)
+	}
+}
+
+func TestBBLDoesNotAffectCarry(t *testing.T) {
+	c := NewCPU4004()
+	c.C = true
+	c.push(0x001)
+	if err := c.Execute(BBL(0)); err != nil {
+		t.Fatal(err)
+	}
+	if !c.C {
+		t.Error("C = false, want true (BBL should not affect carry)")
+	}
+}

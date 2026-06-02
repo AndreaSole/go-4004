@@ -46,6 +46,11 @@ func (c *CPU4004) Step(rom *ROM) error {
 	return c.Execute(op)
 }
 
+// Push è la versione esportata di push, usata da main e dai test di integrazione
+// finché JMS non sarà implementato. Simula il salvataggio dell'indirizzo di ritorno
+// che normalmente avviene automaticamente con l'istruzione JMS.
+func (c *CPU4004) Push(addr uint16) { c.push(addr) }
+
 // push salva un indirizzo sullo stack prima di un salto a subroutine (JMS).
 // L'indice è calcolato modulo 3: se lo stack è pieno il valore più vecchio
 // viene sovrascritto, replicando il comportamento hardware del 4004 reale.

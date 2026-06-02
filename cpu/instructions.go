@@ -172,6 +172,13 @@ func (c *CPU4004) Execute(op byte) error {
 			c.A = 0xF
 		}
 
+	// BBL 0-15: branch back and load.
+	// Ripristina PC dallo stack (ritorno da subroutine) e carica il nibble basso in A.
+	// Non modifica il carry.
+	case op&0xF0 == OP_BBL:
+		c.A = nibble(low)
+		c.PC = c.pop()
+
 	default:
 		return fmt.Errorf("opcode non implementato: 0x%02X", op)
 	}

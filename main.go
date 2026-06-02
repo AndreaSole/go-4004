@@ -8,32 +8,39 @@ import (
 func main() {
 	c := cpu.NewCPU4004()
 
-	// 30 + 18 = 48 (BCD, cifra per cifra)
-	rom := cpu.NewROM([]byte{
-		cpu.LDM(3), cpu.XCH(cpu.R0), // R0 = 3 (decine di 30)
-		cpu.LDM(0), cpu.XCH(cpu.R1), // R1 = 0 (unità di 30)
-		cpu.LDM(1), cpu.XCH(cpu.R2), // R2 = 1 (decine di 18)
-		cpu.LDM(8), cpu.XCH(cpu.R3), // R3 = 8 (unità di 18)
+	// Demo BBL: ritorno da subroutine con valore in A.
+	//
+	// Layout ROM:
+	//   0x000  LDM 9    ← programma principale (non eseguito in questo demo)
+	//   0x001  LDM 3    ← (qui andrebbe JMS 0x002, non ancora implementato)
+	//   0x002  BBL 7    ← corpo subroutine: ritorna con A=7
+	//   0x003  NOP      ← prima istruzione dopo il ritorno
+	//
+	// Simuliamo JMS manualmente:
+	//   Push(0x003) → salva l'indirizzo di ritorno nello stack
+	//   PC = 0x002  → puntiamo direttamente alla subroutine
+	//   Step()      → esegue BBL 7: A=7, PC ripristinato a 0x003
 
-		cpu.LD(cpu.R1), cpu.ADD(cpu.R3), cpu.DAA(), cpu.XCH(cpu.R5), // unità: 0+8=8
-		cpu.LD(cpu.R0), cpu.ADD(cpu.R2), cpu.DAA(), cpu.XCH(cpu.R4), // decine: 3+1=4
+	rom := cpu.NewROM([]byte{
+		cpu.LDM(9), // 0x000
+		cpu.LDM(3), // 0x001
+		cpu.BBL(7), // 0x002 — subroutine: ritorna con A=7
+		cpu.NOP(),  // 0x003 — prima istruzione dopo il ritorno
 	})
 
-	fmt.Println("=== BEFORE ===")
-	printCPU(c)
+	c.Push(0x003) // simula JMS: salva indirizzo di ritorno
+	c.PC = 0x002  // salta alla subroutine
 
-	for i := range rom.Data {
-		fmt.Printf("\nSTEP %d — PC=%03X OP=0x%02X\n", i, c.PC, rom.Data[c.PC])
-		if err := c.Step(rom); err != nil {
-			panic(err)
-		}
-		printCPU(c)
+	fmt.Println("=== BEFORE BBL ===")
+	fmt.Printf("PC=0x%03X  A=%d  SP=%d\n", c.PC, c.A, c.SP)
+
+	if err := c.Step(rom); err != nil {
+		panic(err)
 	}
 
-	fmt.Println("\n=== FINAL STATE ===")
-	printCPU(c)
-	fmt.Printf("Risultato BCD: R4=%d (decine) R5=%d (unità) → %d%d\n",
-		c.R[cpu.R4], c.R[cpu.R5], c.R[cpu.R4], c.R[cpu.R5])
+	fmt.Println("\n=== AFTER BBL ===")
+	fmt.Printf("PC=0x%03X  A=%d  SP=%d\n", c.PC, c.A, c.SP)
+	fmt.Println("→ PC ripristinato a 0x003, A=7 (valore di ritorno)")
 }
 
 func printCPU(c *cpu.CPU4004) {
