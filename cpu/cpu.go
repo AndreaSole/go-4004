@@ -1,5 +1,7 @@
 package cpu
 
+import "fmt"
+
 // CPU4004 rappresenta lo stato interno del processore Intel 4004.
 //
 // Il 4004 è un processore a 4 bit: A, i registri e le operazioni ALU
@@ -56,17 +58,26 @@ func nibble(v uint8) uint8 {
 // PC è mascherato a 12 bit (range 0x000–0xFFF) come sul 4004 reale.
 // Le istruzioni a 2 byte (JCN, FIM, JUN, JMS, ISZ) leggono un secondo byte prima di eseguire.
 func (c *CPU4004) Step(rom *ROM) error {
-	op := rom.Data[c.PC]
+	op, err := readROM(rom, c.PC)
+	if err != nil {
+		return err
+	}
 	c.PC = (c.PC + 1) & 0x0FFF
 
 	switch op & 0xF0 {
 	case OP_JCN, OP_JUN, OP_JMS, OP_ISZ:
-		arg := rom.Data[c.PC]
+		arg, err := readROM(rom, c.PC)
+		if err != nil {
+			return err
+		}
 		c.PC = (c.PC + 1) & 0x0FFF
 		return c.executeWithArg(op, arg)
 	case OP_FIM & 0xF0: // 0x20: FIM (bit 0 = 0, 2 byte) o SRC (bit 0 = 1, 1 byte)
 		if op&0x01 == 0 {
-			arg := rom.Data[c.PC]
+			arg, err := readROM(rom, c.PC)
+			if err != nil {
+				return err
+			}
 			c.PC = (c.PC + 1) & 0x0FFF
 			return c.executeWithArg(op, arg)
 		}
@@ -74,9 +85,14 @@ func (c *CPU4004) Step(rom *ROM) error {
 	case OP_FIN & 0xF0: // 0x30: FIN (bit 0 = 0) o JIN (bit 0 = 1)
 		if op&0x01 == 0 {
 			// FIN Rr: fetch indirect da ROM usando R0:R1 come indirizzo (nella pagina corrente)
+			// La pagina arriva dal PC post-fetch: questo replica anche l'eccezione Intel
+			// per FIN posto all'ultimo byte di una pagina ROM.
 			rp := op & 0x0E // primo registro della coppia (sempre pari)
 			addr := (c.PC & 0x0F00) | (uint16(c.R[0]) << 4) | uint16(c.R[1])
-			data := rom.Data[addr]
+			data, err := readROM(rom, addr)
+			if err != nil {
+				return err
+			}
 			c.R[rp] = data >> 4
 			c.R[rp+1] = data & 0x0F
 			return nil
@@ -96,13 +112,26 @@ func (c *CPU4004) Push(addr uint16) { c.push(addr) }
 // L'indice è calcolato modulo 3: se lo stack è pieno il valore più vecchio
 // viene sovrascritto, replicando il comportamento hardware del 4004 reale.
 func (c *CPU4004) push(addr uint16) {
-	c.Stack[c.SP%3] = addr
+	c.Stack[c.SP%3] = addr & 0x0FFF
 	c.SP++
 }
 
 // pop recupera l'indirizzo di ritorno dallo stack (usato da BBL).
 // Decrementa SP prima di leggere, speculare a push.
 func (c *CPU4004) pop() uint16 {
+	if c.SP == 0 {
+		return 0
+	}
 	c.SP--
 	return c.Stack[c.SP%3]
+}
+
+func readROM(rom *ROM, addr uint16) (byte, error) {
+	if rom == nil {
+		return 0, fmt.Errorf("ROM non inizializzata")
+	}
+	if int(addr) >= len(rom.Data) {
+		return 0, fmt.Errorf("indirizzo ROM 0x%03X fuori dalla ROM (len=%d)", addr, len(rom.Data))
+	}
+	return rom.Data[addr], nil
 }

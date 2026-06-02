@@ -23,12 +23,14 @@ func (c *CPU4004) executeWithArg(op, arg byte) error {
 		c.push(c.PC)
 		c.PC = (uint16(high) << 8) | uint16(arg)
 
-	// JCN c,a: salta se la condizione c è vera, a è il byte basso dell'indirizzo nella stessa pagina (0xPAB dove P=PC[11:8]).
+	// JCN c,a: salta se la condizione c e' vera, a e' il byte basso dell'indirizzo.
+	// La pagina e' quella del PC post-fetch: sul 4004 questo include l'eccezione
+	// documentata per JCN posto sugli ultimi due byte di una pagina ROM.
 	// Condizione codificata in 4 bit (nibble basso del primo byte):
-	//   bit 3 (C4): inverte l'intera condizione (NOT)
-	//   bit 2 (C3): salta se A == 0
-	//   bit 1 (C2): salta se carry == 1
-	//   bit 0 (C1): salta se TEST == 0 (TEST pin non emulato, trattato come 1 → condizione sempre falsa)
+	//   bit 3 (C1): inverte l'intera condizione (NOT)
+	//   bit 2 (C2): salta se A == 0
+	//   bit 1 (C3): salta se carry == 1
+	//   bit 0 (C4): salta se TEST == 0 (TEST pin non emulato, trattato come 1)
 	case OP_JCN:
 		cond := high
 		taken := false
@@ -38,16 +40,17 @@ func (c *CPU4004) executeWithArg(op, arg byte) error {
 		if cond&0x02 != 0 && c.C {
 			taken = true
 		}
-		// C1 (TEST pin) non emulato: considerato sempre HIGH → condizione C1 mai vera
+		// C4 (TEST pin) non emulato: considerato sempre HIGH, quindi condizione C4 mai vera.
 		if cond&0x08 != 0 {
-			taken = !taken // C4: NOT della condizione
+			taken = !taken // C1: NOT della condizione
 		}
 		if taken {
-			// L'indirizzo di salto condivide i 4 bit alti con il PC corrente (stessa pagina)
+			// L'indirizzo di salto condivide i 4 bit alti con il PC post-fetch.
 			c.PC = (c.PC & 0x0F00) | uint16(arg)
 		}
 
-	// ISZ Rr,a: incrementa il registro Rr; se il risultato è 0, salta a 'a' (stesso meccanismo di JCN).
+	// ISZ Rr,a: incrementa il registro Rr; se il risultato e' diverso da 0,
+	// salta a 'a' usando la stessa pagina post-fetch di JCN.
 	case OP_ISZ:
 		c.R[high] = nibble(c.R[high] + 1)
 		if c.R[high] != 0 {
@@ -90,7 +93,7 @@ func (c *CPU4004) Execute(op byte) error {
 	case op&0xF0 == OP_XCH:
 		// XCH R0-R15: scambia il valore dell'accumulatore (A) con quello del registro specificato (R0-R15)
 		// Ad esempio, se A = 0x02 e R0 = 0x00, dopo XCH R0, A sarà 0x00 e R0 sarà 0x02
-		c.A, c.R[low] = c.R[low], c.A
+		c.A, c.R[low] = nibble(c.R[low]), nibble(c.A)
 
 	case op&0xF0 == OP_INC:
 		// INC R0-R15: incrementa il valore del registro specificato (R0-R15) di 1

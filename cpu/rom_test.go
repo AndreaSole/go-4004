@@ -45,3 +45,33 @@ func TestStepPCWrapsAt12Bit(t *testing.T) {
 		t.Errorf("PC = 0x%X, want 0x000 (wrap)", c.PC)
 	}
 }
+
+func TestStepReturnsErrorWhenPCOutsideROM(t *testing.T) {
+	c := NewCPU4004()
+	c.PC = 0x002
+	rom := NewROM([]byte{NOP()})
+
+	if err := c.Step(rom); err == nil {
+		t.Fatal("expected error when PC points outside ROM")
+	}
+}
+
+func TestStepReturnsErrorWhenSecondByteOutsideROM(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM([]byte{JUN(0)})
+
+	if err := c.Step(rom); err == nil {
+		t.Fatal("expected error when a 2-byte instruction is truncated")
+	}
+}
+
+func TestStepReturnsErrorWhenFINTargetOutsideROM(t *testing.T) {
+	c := NewCPU4004()
+	c.R[R0] = 0x1
+	c.R[R1] = 0x0
+	rom := NewROM([]byte{FIN(R2)})
+
+	if err := c.Step(rom); err == nil {
+		t.Fatal("expected error when FIN target address is outside ROM")
+	}
+}

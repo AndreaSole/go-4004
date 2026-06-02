@@ -74,6 +74,21 @@ func TestXCH(t *testing.T) {
 	}
 }
 
+func TestXCHMasksRegisterValue(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 5
+	c.R[R0] = 0x1E
+	if err := c.Execute(XCH(R0)); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 0xE {
+		t.Fatalf("expected A=0xE, got A=0x%X", c.A)
+	}
+	if c.R[R0] != 5 {
+		t.Fatalf("expected R0=5, got R0=0x%X", c.R[R0])
+	}
+}
+
 // --- INC ---
 
 func TestINC(t *testing.T) {
@@ -599,6 +614,20 @@ func TestDCL(t *testing.T) {
 	}
 }
 
+func TestDCLMasksAccumulatorToThreeBits(t *testing.T) {
+	c := NewCPU4004()
+	c.A = 9
+	if err := c.Execute(DCL()); err != nil {
+		t.Fatal(err)
+	}
+	if c.CL != 1 {
+		t.Errorf("CL = %d, want 1", c.CL)
+	}
+	if c.A != 9 {
+		t.Errorf("A = %d, want 9 (unchanged)", c.A)
+	}
+}
+
 func TestDCLDoesNotAffectCarry(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 2
@@ -650,6 +679,24 @@ func TestBBLDoesNotAffectCarry(t *testing.T) {
 	}
 	if !c.C {
 		t.Error("C = false, want true (BBL should not affect carry)")
+	}
+}
+
+func TestBBLEmptyStackReturnsZero(t *testing.T) {
+	c := NewCPU4004()
+	c.SP = 0
+	c.Stack[1] = 0x123
+	if err := c.Execute(BBL(5)); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0 {
+		t.Errorf("PC = 0x%03X, want 0x000", c.PC)
+	}
+	if c.SP != 0 {
+		t.Errorf("SP = %d, want 0", c.SP)
+	}
+	if c.A != 5 {
+		t.Errorf("A = %d, want 5", c.A)
 	}
 }
 
@@ -798,6 +845,21 @@ func TestJCNInvertedCondition(t *testing.T) {
 	}
 }
 
+func TestJCNAtPageEndJumpsToNextPage(t *testing.T) {
+	c := NewCPU4004()
+	c.C = true
+	c.PC = 0x0FE
+	rom := NewROM(make([]byte, 4096))
+	rom.Data[0x0FE] = JCN(0x2)
+	rom.Data[0x0FF] = 0x20
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x120 {
+		t.Errorf("PC = 0x%03X, want 0x120", c.PC)
+	}
+}
+
 // --- ISZ ---
 
 func TestISZNoJumpWhenZero(t *testing.T) {
@@ -831,6 +893,24 @@ func TestISZJumpWhenNotZero(t *testing.T) {
 	}
 	if c.PC != 0x050 {
 		t.Errorf("PC = 0x%03X, want 0x050 (jump because not zero)", c.PC)
+	}
+}
+
+func TestISZAtPageEndJumpsToNextPageWhenNotZero(t *testing.T) {
+	c := NewCPU4004()
+	c.PC = 0x0FE
+	c.R[R2] = 3
+	rom := NewROM(make([]byte, 4096))
+	rom.Data[0x0FE] = ISZ(R2)
+	rom.Data[0x0FF] = 0x40
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.R[R2] != 4 {
+		t.Errorf("R2 = %d, want 4", c.R[R2])
+	}
+	if c.PC != 0x140 {
+		t.Errorf("PC = 0x%03X, want 0x140", c.PC)
 	}
 }
 
@@ -949,6 +1029,26 @@ func TestFINDoesNotChangeR0R1(t *testing.T) {
 	}
 	if c.R[R4] != 0xC || c.R[R5] != 0xD {
 		t.Errorf("R4=%X R5=%X, want C D", c.R[R4], c.R[R5])
+	}
+}
+
+func TestFINAtPageEndFetchesFromNextPage(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 4096))
+	c.PC = 0x0FF
+	c.R[R0] = 0x1
+	c.R[R1] = 0x0
+	rom.Data[0x0FF] = FIN(R2)
+	rom.Data[0x010] = 0xCD
+	rom.Data[0x110] = 0xAB
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.R[R2] != 0xA || c.R[R3] != 0xB {
+		t.Errorf("R2=%X R3=%X, want A B", c.R[R2], c.R[R3])
+	}
+	if c.PC != 0x100 {
+		t.Errorf("PC = 0x%03X, want 0x100", c.PC)
 	}
 }
 
