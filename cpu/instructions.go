@@ -40,9 +40,9 @@ func (c *CPU4004) executeWithArg(op, arg byte) error {
 		if cond&0x02 != 0 && c.C {
 			taken = true
 		}
-		// C4 (TEST pin) non emulato: considerato sempre HIGH, quindi condizione C4 mai vera.
-		if cond&0x08 != 0 {
-			taken = !taken // C1: NOT della condizione
+		// C4 (bit 0, TEST pin) non emulato: considerato sempre HIGH, quindi mai vero.
+		if cond&0x08 != 0 { // C1 (bit 3): NOT della condizione composta.
+			taken = !taken
 		}
 		if taken {
 			// L'indirizzo di salto condivide i 4 bit alti con il PC post-fetch.
@@ -116,16 +116,16 @@ func (c *CPU4004) Execute(op byte) error {
 		// Il carry è true se il risultato dell'addizione supera 0x0F (15), altrimenti è false
 		c.C = result > 0x0F
 
-	// SUB R0-R15: sottrae il valore del registro specificato (R0-R15) dall'accumulatore (A) considerando il borrow (carry)
-	// La formula 16 + A - Rr - borrow evita underflow su uint8. Se il risultato è < 16, significa che senza il "prestito del 16" sarebbe stato negativo → borrow avvenuto → C=1.
+	// SUB R0-R15: A = A + ~Rr + CY. Sul 4004 CY=1 significa nessun borrow
+	// precedente; dopo l'operazione CY=1 significa nessun borrow generato.
 	case op&0xF0 == OP_SUB:
-		borrow := uint8(0)
+		carry := uint8(0)
 		if c.C {
-			borrow = 1
+			carry = 1
 		}
-		sum := uint8(16) + c.A - c.R[low] - borrow
+		sum := c.A + nibble(^c.R[low]) + carry
 		c.A = nibble(sum)
-		c.C = sum < 16
+		c.C = sum > 0x0F
 
 	// IAC: Increment Accumulator, incrementa l'accumulatore (A) di 1 considerando il carry
 	case op == OP_IAC:
@@ -133,12 +133,12 @@ func (c *CPU4004) Execute(op byte) error {
 		c.A = nibble(result)
 		c.C = result > 0x0F
 
-	// DAC: Decrement Accumulator, decrementa l'accumulatore (A) di 1 considerando il borrow (carry)
-	// La formula 16 + A - 1 evita underflow su uint8. Se il risultato è < 16, significa che senza il "prestito del 16" sarebbe stato negativo → borrow avvenuto → C=1.
+	// DAC: Decrement Accumulator, decrementa A di 1.
+	// Un borrow imposta CY=0; nessun borrow imposta CY=1.
 	case op == OP_DAC:
-		result := uint8(16) + c.A - 1
+		result := c.A + 0x0F
 		c.A = nibble(result)
-		c.C = result < 16
+		c.C = result > 0x0F
 
 	// CMA: Complement Accumulator, inverte tutti i bit dell'accumulatore (A)
 	case op == OP_CMA:

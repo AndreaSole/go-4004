@@ -167,14 +167,15 @@ func TestSUB(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 7
 	c.R[R2] = 3
+	c.C = true
 	if err := c.Execute(SUB(R2)); err != nil {
 		t.Fatal(err)
 	}
 	if c.A != 4 {
 		t.Errorf("A = %d, want 4", c.A)
 	}
-	if c.C {
-		t.Error("C = true, want false")
+	if !c.C {
+		t.Error("C = false, want true")
 	}
 }
 
@@ -182,30 +183,31 @@ func TestSUBWithBorrow(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 3
 	c.R[R2] = 7
+	c.C = true
 	if err := c.Execute(SUB(R2)); err != nil {
 		t.Fatal(err)
 	}
 	if c.A != 12 { // 3 - 7 = -4 → nibble(12)
 		t.Errorf("A = %d, want 12", c.A)
 	}
-	if !c.C {
-		t.Error("C = false, want true")
+	if c.C {
+		t.Error("C = true, want false")
 	}
 }
 
-func TestSUBWithInitialBorrow(t *testing.T) {
+func TestSUBWithPriorBorrow(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 5
 	c.R[R2] = 3
-	c.C = true
+	c.C = false
 	if err := c.Execute(SUB(R2)); err != nil {
 		t.Fatal(err)
 	}
 	if c.A != 1 { // 5 - 3 - 1 = 1
 		t.Errorf("A = %d, want 1", c.A)
 	}
-	if c.C {
-		t.Error("C = true, want false")
+	if !c.C {
+		t.Error("C = false, want true")
 	}
 }
 
@@ -250,8 +252,8 @@ func TestDAC(t *testing.T) {
 	if c.A != 4 {
 		t.Errorf("A = %d, want 4", c.A)
 	}
-	if c.C {
-		t.Error("C = true, want false")
+	if !c.C {
+		t.Error("C = false, want true")
 	}
 }
 
@@ -264,8 +266,8 @@ func TestDACUnderflow(t *testing.T) {
 	if c.A != 0x0F {
 		t.Errorf("A = %d, want 15", c.A)
 	}
-	if !c.C {
-		t.Error("C = false, want true")
+	if c.C {
+		t.Error("C = true, want false")
 	}
 }
 
@@ -616,15 +618,15 @@ func TestDCL(t *testing.T) {
 
 func TestDCLMasksAccumulatorToThreeBits(t *testing.T) {
 	c := NewCPU4004()
-	c.A = 9
+	c.A = 0xF
 	if err := c.Execute(DCL()); err != nil {
 		t.Fatal(err)
 	}
-	if c.CL != 1 {
-		t.Errorf("CL = %d, want 1", c.CL)
+	if c.CL != 7 {
+		t.Errorf("CL = %d, want 7", c.CL)
 	}
-	if c.A != 9 {
-		t.Errorf("A = %d, want 9 (unchanged)", c.A)
+	if c.A != 0xF {
+		t.Errorf("A = %d, want 15 (unchanged)", c.A)
 	}
 }
 
@@ -827,6 +829,19 @@ func TestJCNAccZero(t *testing.T) {
 	}
 	if c.PC != 0x030 {
 		t.Errorf("PC = 0x%03X, want 0x030", c.PC)
+	}
+}
+
+func TestJCNTestPinConditionDoesNotJump(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 4096))
+	rom.Data[0x000] = JCN(0x1)
+	rom.Data[0x001] = 0x50
+	if err := c.Step(rom); err != nil {
+		t.Fatal(err)
+	}
+	if c.PC != 0x002 {
+		t.Errorf("PC = 0x%03X, want 0x002", c.PC)
 	}
 }
 
