@@ -7,7 +7,7 @@ func TestStepExecutesOpcode(t *testing.T) {
 	c := NewCPU4004()
 	rom := NewROM([]byte{LDM(7)})
 
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.A != 7 {
@@ -20,9 +20,9 @@ func TestStepIncreasesPC(t *testing.T) {
 	c := NewCPU4004()
 	rom := NewROM([]byte{LDM(1), LDM(2), LDM(3)})
 
-	c.Step(rom)
-	c.Step(rom)
-	c.Step(rom)
+	c.Step(rom, nil)
+	c.Step(rom, nil)
+	c.Step(rom, nil)
 
 	if c.PC != 3 {
 		t.Errorf("PC = %d, want 3", c.PC)
@@ -38,7 +38,7 @@ func TestStepPCWrapsAt12Bit(t *testing.T) {
 	c.PC = 0x0FFF
 	rom := NewROM(make([]byte, 0x1000)) // 4096 NOP
 
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.PC != 0 {
@@ -51,7 +51,7 @@ func TestStepReturnsErrorWhenPCOutsideROM(t *testing.T) {
 	c.PC = 0x002
 	rom := NewROM([]byte{NOP()})
 
-	if err := c.Step(rom); err == nil {
+	if err := c.Step(rom, nil); err == nil {
 		t.Fatal("expected error when PC points outside ROM")
 	}
 }
@@ -60,7 +60,7 @@ func TestStepReturnsErrorWhenSecondByteOutsideROM(t *testing.T) {
 	c := NewCPU4004()
 	rom := NewROM([]byte{JUN(0)})
 
-	if err := c.Step(rom); err == nil {
+	if err := c.Step(rom, nil); err == nil {
 		t.Fatal("expected error when a 2-byte instruction is truncated")
 	}
 }
@@ -71,7 +71,7 @@ func TestStepReturnsErrorWhenFINTargetOutsideROM(t *testing.T) {
 	c.R[R1] = 0x0
 	rom := NewROM([]byte{FIN(R2)})
 
-	if err := c.Step(rom); err == nil {
+	if err := c.Step(rom, nil); err == nil {
 		t.Fatal("expected error when FIN target address is outside ROM")
 	}
 }

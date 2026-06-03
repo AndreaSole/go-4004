@@ -710,7 +710,7 @@ func TestJUN(t *testing.T) {
 	// JUN 0x3AB: primo byte 0x43, secondo byte 0xAB
 	rom.Data[0x000] = JUN(0x3) // opcode: 0x43
 	rom.Data[0x001] = 0xAB
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.PC != 0x3AB {
@@ -725,7 +725,7 @@ func TestJUNDoesNotModifyRegisters(t *testing.T) {
 	rom := NewROM(make([]byte, 4096))
 	rom.Data[0x000] = JUN(0x0)
 	rom.Data[0x001] = 0x10
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.A != 7 {
@@ -745,7 +745,7 @@ func TestJMS(t *testing.T) {
 	// JMS 0x2CD: primo byte 0x52, secondo byte 0xCD. PC parte da 0x100.
 	rom.Data[0x100] = JMS(0x2) // opcode: 0x52
 	rom.Data[0x101] = 0xCD
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.PC != 0x2CD {
@@ -768,13 +768,13 @@ func TestJMSAndBBLRoundtrip(t *testing.T) {
 	rom.Data[0x002] = NOP() // istruzione al ritorno
 	rom.Data[0x010] = BBL(3)
 
-	if err := c.Step(rom); err != nil { // JMS
+	if err := c.Step(rom, nil); err != nil { // JMS
 		t.Fatal(err)
 	}
 	if c.PC != 0x010 {
 		t.Fatalf("after JMS: PC = 0x%03X, want 0x010", c.PC)
 	}
-	if err := c.Step(rom); err != nil { // BBL 3
+	if err := c.Step(rom, nil); err != nil { // BBL 3
 		t.Fatal(err)
 	}
 	if c.PC != 0x002 {
@@ -794,7 +794,7 @@ func TestJCNCarrySet(t *testing.T) {
 	// JCN con C2=1 (salta se carry=1): cond = 0b0010 = 2
 	rom.Data[0x000] = JCN(0x2)
 	rom.Data[0x001] = 0x50 // target: pagina 0, offset 0x50
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.PC != 0x050 {
@@ -809,7 +809,7 @@ func TestJCNCarryClearNoJump(t *testing.T) {
 	// JCN con C2=1 (salta se carry=1): carry è falso → nessun salto
 	rom.Data[0x000] = JCN(0x2)
 	rom.Data[0x001] = 0x50
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.PC != 0x002 { // PC avanzato di 2 (i 2 byte di JCN)
@@ -824,7 +824,7 @@ func TestJCNAccZero(t *testing.T) {
 	// JCN con C3=1 (salta se A=0): cond = 0b0100 = 4
 	rom.Data[0x000] = JCN(0x4)
 	rom.Data[0x001] = 0x30
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.PC != 0x030 {
@@ -837,7 +837,7 @@ func TestJCNTestPinConditionDoesNotJump(t *testing.T) {
 	rom := NewROM(make([]byte, 4096))
 	rom.Data[0x000] = JCN(0x1)
 	rom.Data[0x001] = 0x50
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.PC != 0x002 {
@@ -852,7 +852,7 @@ func TestJCNInvertedCondition(t *testing.T) {
 	// JCN con C4=1 C2=1 (salta se NOT carry=1, cioè se carry=0): cond = 0b1010 = 0xA
 	rom.Data[0x000] = JCN(0xA)
 	rom.Data[0x001] = 0x40
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.PC != 0x040 {
@@ -867,7 +867,7 @@ func TestJCNAtPageEndJumpsToNextPage(t *testing.T) {
 	rom := NewROM(make([]byte, 4096))
 	rom.Data[0x0FE] = JCN(0x2)
 	rom.Data[0x0FF] = 0x20
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.PC != 0x120 {
@@ -883,7 +883,7 @@ func TestISZNoJumpWhenZero(t *testing.T) {
 	rom := NewROM(make([]byte, 4096))
 	rom.Data[0x000] = ISZ(R2)
 	rom.Data[0x001] = 0x50
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.R[R2] != 0 {
@@ -900,7 +900,7 @@ func TestISZJumpWhenNotZero(t *testing.T) {
 	rom := NewROM(make([]byte, 4096))
 	rom.Data[0x000] = ISZ(R2)
 	rom.Data[0x001] = 0x50
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.R[R2] != 4 {
@@ -918,7 +918,7 @@ func TestISZAtPageEndJumpsToNextPageWhenNotZero(t *testing.T) {
 	rom := NewROM(make([]byte, 4096))
 	rom.Data[0x0FE] = ISZ(R2)
 	rom.Data[0x0FF] = 0x40
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.R[R2] != 4 {
@@ -937,7 +937,7 @@ func TestFIM(t *testing.T) {
 	// FIM R0, 0xAB: R0 = 0xA, R1 = 0xB
 	rom.Data[0x000] = FIM(R0) // 0x20
 	rom.Data[0x001] = 0xAB
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.R[R0] != 0xA {
@@ -957,7 +957,7 @@ func TestFIMPair4(t *testing.T) {
 	// FIM R4, 0x37: R4 = 0x3, R5 = 0x7
 	rom.Data[0x000] = FIM(R4) // 0x24
 	rom.Data[0x001] = 0x37
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.R[R4] != 0x3 {
@@ -1014,7 +1014,7 @@ func TestFIN(t *testing.T) {
 	rom.Data[0x000] = FIN(R2) // 0x32
 	rom.Data[0x058] = 0xAB    // byte da leggere
 	c.PC = 0x000
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.R[R2] != 0xA {
@@ -1036,7 +1036,7 @@ func TestFINDoesNotChangeR0R1(t *testing.T) {
 	rom.Data[0x000] = FIN(R4) // 0x34: carica in R4/R5, non in R0/R1
 	rom.Data[0x020] = 0xCD
 	c.PC = 0x000
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.R[R0] != 0x2 || c.R[R1] != 0x0 {
@@ -1056,7 +1056,7 @@ func TestFINAtPageEndFetchesFromNextPage(t *testing.T) {
 	rom.Data[0x0FF] = FIN(R2)
 	rom.Data[0x010] = 0xCD
 	rom.Data[0x110] = 0xAB
-	if err := c.Step(rom); err != nil {
+	if err := c.Step(rom, nil); err != nil {
 		t.Fatal(err)
 	}
 	if c.R[R2] != 0xA || c.R[R3] != 0xB {

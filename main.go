@@ -24,7 +24,7 @@ func main() {
 	// programma principale
 	rom.Data[0x000] = cpu.FIM(cpu.R2) // 0x24
 	rom.Data[0x001] = 0x0D            // R2=0x0, R3=0xD → loop termina dopo 3 incrementi (0xD→0xE→0xF→0)
-	rom.Data[0x002] = cpu.JMS(0x0)   // 0x50: JMS 0x010
+	rom.Data[0x002] = cpu.JMS(0x0)    // 0x50: JMS 0x010
 	rom.Data[0x003] = 0x10
 	rom.Data[0x004] = cpu.NOP()
 	rom.Data[0x005] = cpu.ISZ(cpu.R3) // salta a 0x002 se R3 != 0 dopo l'incremento
@@ -42,7 +42,7 @@ func main() {
 
 	for step := 0; step < 30; step++ {
 		pc := c.PC
-		if err := c.Step(rom); err != nil {
+		if err := c.Step(rom, nil); err != nil {
 			fmt.Printf("Errore al passo %d (PC=0x%03X): %v\n", step, pc, err)
 			break
 		}

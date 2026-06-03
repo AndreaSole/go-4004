@@ -272,3 +272,26 @@ func (c *CPU4004) Execute(op byte) error {
 
 	return nil
 }
+
+// executeIO esegue le istruzioni del gruppo I/O e RAM (opcode 0xE0–0xEF).
+// Queste istruzioni leggono e scrivono nella RAM virtuale (chip Intel 4002)
+// all'indirizzo selezionato da DCL (banco) e SRC (registro + carattere).
+//
+// Indirizzamento:
+//   banco     = CL & 0x3              (impostato da DCL)
+//   registro  = (SRCAddr >> 4) & 0x3  (nibble alto di SRCAddr)
+//   carattere = int(SRCAddr & 0x0F)   (nibble basso di SRCAddr)
+func (c *CPU4004) executeIO(op byte, ram *RAM) error {
+	if ram == nil {
+		return fmt.Errorf("istruzione I/O 0x%02X: RAM non inizializzata", op)
+	}
+
+	_ = c.CL & 0x3             // banco   (usato dalle istruzioni)
+	_ = (c.SRCAddr >> 4) & 0x3 // registro (usato dalle istruzioni)
+	_ = int(c.SRCAddr & 0x0F)  // carattere (usato dalle istruzioni)
+
+	switch op {
+	default:
+		return fmt.Errorf("istruzione I/O non implementata: 0x%02X", op)
+	}
+}

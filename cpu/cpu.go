@@ -57,7 +57,7 @@ func nibble(v uint8) uint8 {
 // legge l'opcode dalla ROM all'indirizzo PC, incrementa PC, esegue l'istruzione.
 // PC è mascherato a 12 bit (range 0x000–0xFFF) come sul 4004 reale.
 // Le istruzioni a 2 byte (JCN, FIM, JUN, JMS, ISZ) leggono un secondo byte prima di eseguire.
-func (c *CPU4004) Step(rom *ROM) error {
+func (c *CPU4004) Step(rom *ROM, ram *RAM) error {
 	op, err := readROM(rom, c.PC)
 	if err != nil {
 		return err
@@ -98,6 +98,8 @@ func (c *CPU4004) Step(rom *ROM) error {
 			return nil
 		}
 		return c.Execute(op) // JIN: 1 byte, gestito in Execute
+	case 0xE0: // gruppo I/O e RAM (0xEX) — richiede accesso alla RAM virtuale
+		return c.executeIO(op, ram)
 	default:
 		return c.Execute(op)
 	}
