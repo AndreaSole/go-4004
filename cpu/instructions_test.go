@@ -1211,3 +1211,71 @@ func TestWRMRDMRoundtrip(t *testing.T) {
 		t.Errorf("A = %d, want 5 (round-trip WRM→RDM)", c.A)
 	}
 }
+
+// --- ADM ---
+
+func TestADM(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	ram.Data[0][0][0] = 3
+	c.A = 4
+	c.C = false
+	c.SRCAddr = 0x00
+
+	rom.Data[0x000] = ADM()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 7 {
+		t.Errorf("A = %d, want 7", c.A)
+	}
+	if c.C {
+		t.Error("C = true, want false")
+	}
+}
+
+func TestADMWithCarryIn(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	ram.Data[0][0][0] = 3
+	c.A = 4
+	c.C = true // carry in
+	c.SRCAddr = 0x00
+
+	rom.Data[0x000] = ADM()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 8 {
+		t.Errorf("A = %d, want 8", c.A)
+	}
+	if c.C {
+		t.Error("C = true, want false")
+	}
+}
+
+func TestADMWithCarryOut(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	ram.Data[0][0][0] = 9
+	c.A = 9
+	c.C = false
+	c.SRCAddr = 0x00
+
+	rom.Data[0x000] = ADM()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 2 { // 9+9=18 → nibble(18)=2
+		t.Errorf("A = %d, want 2", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true")
+	}
+}

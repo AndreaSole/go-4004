@@ -300,6 +300,16 @@ func (c *CPU4004) executeIO(op byte, ram *RAM) error {
 	// Non modifica il carry.
 	case OP_RDM:
 		c.A = nibble(ram.Data[banco][reg][char])
+	// ADM: A = A + RAM + carry. Come ADD ma con operando dalla RAM.
+	// Imposta il carry se il risultato supera 0x0F.
+	case OP_ADM:
+		carry := uint8(0)
+		if c.C {
+			carry = 1
+		}
+		result := c.A + ram.Data[banco][reg][char] + carry
+		c.A = nibble(result)
+		c.C = result > 0x0F
 
 	default:
 		return fmt.Errorf("istruzione I/O non implementata: 0x%02X", op)

@@ -37,3 +37,4 @@ func JIN(rp byte) byte       { return OP_JIN | (nibble(rp) &^ 1) }
 // istruzioni per la ram
 func WRM() byte { return OP_WRM }
 func RDM() byte { return OP_RDM }
+func ADM() byte { return OP_ADM }
