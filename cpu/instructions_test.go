@@ -1385,3 +1385,89 @@ func TestWMPDoesNotAffectCarry(t *testing.T) {
 		t.Error("C = false, want true (WMP should not affect carry)")
 	}
 }
+
+// --- WR0/WR1/WR2/WR3 ---
+
+func TestWR0(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	c.SRCAddr = 0x10 // registro 1
+	c.A = 6
+
+	rom.Data[0x000] = WR0()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if ram.Status[0][1][0] != 6 {
+		t.Errorf("Status[0][1][0] = %d, want 6", ram.Status[0][1][0])
+	}
+}
+
+func TestWR1(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	c.SRCAddr = 0x00
+	c.A = 3
+
+	rom.Data[0x000] = WR1()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if ram.Status[0][0][1] != 3 {
+		t.Errorf("Status[0][0][1] = %d, want 3", ram.Status[0][0][1])
+	}
+}
+
+func TestWR2(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	c.SRCAddr = 0x00
+	c.A = 9
+
+	rom.Data[0x000] = WR2()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if ram.Status[0][0][2] != 9 {
+		t.Errorf("Status[0][0][2] = %d, want 9", ram.Status[0][0][2])
+	}
+}
+
+func TestWR3(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	c.SRCAddr = 0x00
+	c.A = 0xF
+
+	rom.Data[0x000] = WR3()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if ram.Status[0][0][3] != 0xF {
+		t.Errorf("Status[0][0][3] = %X, want F", ram.Status[0][0][3])
+	}
+}
+
+func TestWRDoesNotAffectCarry(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	c.C = true
+	c.A = 5
+	rom.Data[0x000] = WR0()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if !c.C {
+		t.Error("C = false, want true (WR0 should not affect carry)")
+	}
+}

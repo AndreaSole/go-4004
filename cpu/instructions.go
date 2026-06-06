@@ -329,6 +329,18 @@ func (c *CPU4004) executeIO(op byte, ram *RAM) error {
 	case OP_WMP:
 		ram.Port[banco] = nibble(c.A)
 
+	// WR0–WR3: scrive A nel nibble di stato 0–3 del registro RAM corrente.
+	// L'area status è separata dai dati ed è usata dal firmware per metadati.
+	// Non modifica A né il carry.
+	case OP_WR0:
+		ram.Status[banco][reg][0] = nibble(c.A)
+	case OP_WR1:
+		ram.Status[banco][reg][1] = nibble(c.A)
+	case OP_WR2:
+		ram.Status[banco][reg][2] = nibble(c.A)
+	case OP_WR3:
+		ram.Status[banco][reg][3] = nibble(c.A)
+
 	default:
 		return fmt.Errorf("istruzione I/O non implementata: 0x%02X", op)
 	}

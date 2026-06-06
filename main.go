@@ -6,18 +6,9 @@ import (
 )
 
 func main() {
-	// Demo: SBM + WMP
+	// Demo: WR0/WR3 — scrive nei nibble di stato della RAM.
 	//
-	//   Scrive 9 in RAM, poi calcola 5 - 9 (con borrow)
-	//   e invia il risultato sulla porta di output.
-	//
-	//   LDM 0 / DCL       → banco 0
-	//   FIM R0, 0x00 / SRC R0
-	//   LDM 9 / WRM       → ram.Data[0][0][0] = 9
-	//   LDM 5             → A=5
-	//   STC               → C=true (nessun borrow iniziale)
-	//   SBM               → A = 5 - 9 = -4 → nibble(12), C=false (borrow)
-	//   WMP               → ram.Port[0] = 12
+	//   Usa lo status per salvare due flag: segno (WR0) e overflow (WR3).
 
 	rom := cpu.NewROM(make([]byte, 4096))
 	ram := cpu.NewRAM()
@@ -27,25 +18,23 @@ func main() {
 	rom.Data[0x002] = cpu.FIM(cpu.R0)
 	rom.Data[0x003] = 0x00
 	rom.Data[0x004] = cpu.SRC(cpu.R0)
-	rom.Data[0x005] = cpu.LDM(9)
-	rom.Data[0x006] = cpu.WRM()
-	rom.Data[0x007] = cpu.LDM(5)
-	rom.Data[0x008] = cpu.STC()
-	rom.Data[0x009] = cpu.SBM()
-	rom.Data[0x00A] = cpu.WMP()
+	rom.Data[0x005] = cpu.LDM(1) // flag segno = 1 (negativo)
+	rom.Data[0x006] = cpu.WR0()
+	rom.Data[0x007] = cpu.LDM(0) // flag overflow = 0
+	rom.Data[0x008] = cpu.WR3()
 
 	c := cpu.NewCPU4004()
-	fmt.Println("=== Demo SBM + WMP (5 - 9) ===")
+	fmt.Println("=== Demo WR0 + WR3 ===")
 
-	for i := 0; i < 11; i++ {
+	for i := 0; i < 9; i++ {
 		if err := c.Step(rom, ram); err != nil {
 			fmt.Printf("Errore: %v\n", err)
 			break
 		}
 	}
 
-	fmt.Printf("A = %d, C = %v  (atteso A=12 C=false: borrow generato)\n", c.A, c.C)
-	fmt.Printf("Port[0] = %d     (atteso 12: valore inviato su porta output)\n", ram.Port[0])
+	fmt.Printf("Status[0][0][0] = %d (segno, atteso 1)\n", ram.Status[0][0][0])
+	fmt.Printf("Status[0][0][3] = %d (overflow, atteso 0)\n", ram.Status[0][0][3])
 }
 
 func printCPU(c *cpu.CPU4004) {
