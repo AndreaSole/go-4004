@@ -95,7 +95,7 @@ Gruppo I/O e RAM — completo (16/16):
 
 # Infrastruttura
 
-* CPU Intel 4004 con 33/46 istruzioni
+* CPU Intel 4004 con 46/46 istruzioni
 * ROM virtuale — `cpu/rom.go`
 * RAM virtuale — `cpu/ram.go` (modello chip Intel 4002)
 * Ciclo fetch-execute — `Step(rom, ram)`
@@ -216,6 +216,38 @@ rom.Data[0x008] = cpu.RDM()           // A = 7
 
 ---
 
+# Debugger / Trace
+
+Abilita il trace per seguire l'esecuzione istruzione per istruzione:
+
+```go
+c := cpu.NewCPU4004()
+c.Trace = true   // stampa su os.Stdout per default
+```
+
+Output:
+
+```
+PC=000 OP=20 FIM R0,..  A=0  C=false
+PC=002 OP=D8 LDM 8      A=8  C=false
+PC=003 OP=81 ADD R1     A=1  C=true
+PC=004 OP=FB DAA        A=7  C=true
+```
+
+Per reindirizzare l'output (utile nei test):
+
+```go
+var buf strings.Builder
+c.TraceWriter = &buf   // qualsiasi io.Writer
+```
+
+La funzione `cpu.Disassemble(op byte) string` è disponibile anche standalone
+per decodificare un singolo opcode in mnemonic leggibile.
+
+Documentazione completa in `docs/debugger.md`.
+
+---
+
 # Esecuzione
 
 ```bash
@@ -251,7 +283,7 @@ un'istruzione alla volta, con test, demo in main e commit dedicato.
 | 5  | ✅ | Stack hardware (JMS/BBL) |
 | 6  | ✅ | Istruzioni di salto (JUN, JMS, JCN, ISZ, FIM, SRC, FIN, JIN) |
 | 7  | ✅ | RAM virtuale — tutte le 46 istruzioni implementate |
-| 8  | 🔲 | Debugger — trace `PC / opcode / A / C` per ogni step |
+| 8  | ✅ | Debugger — trace `PC / opcode / A / C` per ogni step |
 | 9  | 🔲 | Programmi reali — validare la CPU con programmi non banali |
 | 10 | 🔲 | Calcolatrice BCD cifra singola — primo firmware reale |
 | 11 | 🔲 | Numeri multi-cifra — addizione con carry tra cifre in RAM |

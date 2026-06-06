@@ -1,6 +1,10 @@
 package cpu
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+	"os"
+)
 
 // CPU4004 rappresenta lo stato interno del processore Intel 4004.
 //
@@ -34,6 +38,12 @@ type CPU4004 struct {
 	//
 	// Formato: nibble alto (bit 7-4) = chip/banco RAM, nibble basso (bit 3-0) = registro nel chip.
 	SRCAddr uint8
+
+	// Trace e TraceWriter controllano la modalità debugger.
+	// Se Trace = true, Step() stampa una riga per ogni istruzione eseguita.
+	// TraceWriter è la destinazione dell'output; se nil viene usato os.Stdout.
+	Trace       bool
+	TraceWriter io.Writer
 }
 
 // NewCPU4004 crea una nuova istanza del CPU4004 con valori iniziali
@@ -57,31 +67,48 @@ func nibble(v uint8) uint8 {
 // legge l'opcode dalla ROM all'indirizzo PC, incrementa PC, esegue l'istruzione.
 // PC è mascherato a 12 bit (range 0x000–0xFFF) come sul 4004 reale.
 // Le istruzioni a 2 byte (JCN, FIM, JUN, JMS, ISZ) leggono un secondo byte prima di eseguire.
-func (c *CPU4004) Step(rom *ROM, ram *RAM) error {
-	op, err := readROM(rom, c.PC)
+// Se Trace è true, stampa una riga di debug su TraceWriter (o os.Stdout) dopo ogni esecuzione riuscita.
+func (c *CPU4004) Step(rom *ROM, ram *RAM) (err error) {
+	pcBefore := c.PC
+	var op byte
+
+	// Il defer viene eseguito al termine della funzione, qualunque sia il percorso di ritorno.
+	// Poiché err è un named return, la closure vede il valore finale assegnato dalla funzione.
+	defer func() {
+		if c.Trace && err == nil {
+			c.traceLine(pcBefore, op)
+		}
+	}()
+
+	op, err = readROM(rom, c.PC)
 	if err != nil {
-		return err
+		return
 	}
 	c.PC = (c.PC + 1) & 0x0FFF
 
 	switch op & 0xF0 {
 	case OP_JCN, OP_JUN, OP_JMS, OP_ISZ:
-		arg, err := readROM(rom, c.PC)
+		var arg byte
+		arg, err = readROM(rom, c.PC)
 		if err != nil {
-			return err
+			return
 		}
 		c.PC = (c.PC + 1) & 0x0FFF
-		return c.executeWithArg(op, arg)
+		err = c.executeWithArg(op, arg)
+		return
 	case OP_FIM & 0xF0: // 0x20: FIM (bit 0 = 0, 2 byte) o SRC (bit 0 = 1, 1 byte)
 		if op&0x01 == 0 {
-			arg, err := readROM(rom, c.PC)
+			var arg byte
+			arg, err = readROM(rom, c.PC)
 			if err != nil {
-				return err
+				return
 			}
 			c.PC = (c.PC + 1) & 0x0FFF
-			return c.executeWithArg(op, arg)
+			err = c.executeWithArg(op, arg)
+			return
 		}
-		return c.Execute(op) // SRC: 1 byte
+		err = c.Execute(op) // SRC: 1 byte
+		return
 	case OP_FIN & 0xF0: // 0x30: FIN (bit 0 = 0) o JIN (bit 0 = 1)
 		if op&0x01 == 0 {
 			// FIN Rr: fetch indirect da ROM usando R0:R1 come indirizzo (nella pagina corrente)
@@ -89,19 +116,23 @@ func (c *CPU4004) Step(rom *ROM, ram *RAM) error {
 			// per FIN posto all'ultimo byte di una pagina ROM.
 			rp := op & 0x0E // primo registro della coppia (sempre pari)
 			addr := (c.PC & 0x0F00) | (uint16(c.R[0]) << 4) | uint16(c.R[1])
-			data, err := readROM(rom, addr)
+			var data byte
+			data, err = readROM(rom, addr)
 			if err != nil {
-				return err
+				return
 			}
 			c.R[rp] = data >> 4
 			c.R[rp+1] = data & 0x0F
-			return nil
+			return
 		}
-		return c.Execute(op) // JIN: 1 byte, gestito in Execute
+		err = c.Execute(op) // JIN: 1 byte, gestito in Execute
+		return
 	case 0xE0: // gruppo I/O e RAM (0xEX) — richiede accesso alla RAM e alla ROM virtuale
-		return c.executeIO(op, rom, ram)
+		err = c.executeIO(op, rom, ram)
+		return
 	default:
-		return c.Execute(op)
+		err = c.Execute(op)
+		return
 	}
 }
 
@@ -126,6 +157,22 @@ func (c *CPU4004) pop() uint16 {
 	}
 	c.SP--
 	return c.Stack[c.SP%3]
+}
+
+// traceLine stampa una riga di trace per l'istruzione appena eseguita.
+// Formato: PC=003 OP=F2 IAC        A=8  C=true
+// Per le istruzioni I/O (0xEX) aggiunge anche il banco RAM attivo e SRCAddr.
+func (c *CPU4004) traceLine(pc uint16, op byte) {
+	w := c.TraceWriter
+	if w == nil {
+		w = os.Stdout
+	}
+	mnem := Disassemble(op)
+	fmt.Fprintf(w, "PC=%03X OP=%02X %-10s A=%X  C=%-5v", pc, op, mnem, c.A, c.C)
+	if op&0xF0 == 0xE0 {
+		fmt.Fprintf(w, "  CL=%X SRC=%02X", c.CL, c.SRCAddr)
+	}
+	fmt.Fprintln(w)
 }
 
 func readROM(rom *ROM, addr uint16) (byte, error) {

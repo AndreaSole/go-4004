@@ -1,6 +1,9 @@
 package cpu
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestNOP verifica che NOP non modifichi alcuno stato della CPU
 func TestNOP(t *testing.T) {
@@ -1689,5 +1692,122 @@ func TestWPMIsNoOp(t *testing.T) {
 	}
 	if c.C {
 		t.Error("C = true, want false (WPM should not modify C)")
+	}
+}
+
+// --- Disassemble ---
+
+func TestDisassemble(t *testing.T) {
+	cases := []struct {
+		op   byte
+		want string
+	}{
+		{0x00, "NOP"},
+		{0xD7, "LDM 7"},
+		{0xD0, "LDM 0"},
+		{0x82, "ADD R2"},
+		{0x9F, "SUB RF"},
+		{0x6A, "INC RA"},
+		{0xF2, "IAC"},
+		{0xF8, "DAC"},
+		{0xFB, "DAA"},
+		{0xF0, "CLB"},
+		{0xFD, "DCL"},
+		{0xE0, "WRM"},
+		{0xE9, "RDM"},
+		{0xEA, "RDR"},
+		{0xEB, "ADM"},
+		{0x44, "JUN 4.."},
+		{0x53, "JMS 3.."},
+		{0x22, "FIM R2,.."},
+		{0x23, "SRC R2"},
+		{0x32, "FIN R2"},
+		{0x33, "JIN R2"},
+		{0x72, "ISZ R2,.."},
+	}
+	for _, tc := range cases {
+		got := Disassemble(tc.op)
+		if got != tc.want {
+			t.Errorf("Disassemble(0x%02X) = %q, want %q", tc.op, got, tc.want)
+		}
+	}
+}
+
+// --- Trace ---
+
+func TestTrace(t *testing.T) {
+	// Programma: LDM 5 → IAC → NOP
+	// Dopo LDM 5: A=5. Dopo IAC: A=6. NOP non cambia nulla.
+	rom := NewROM([]byte{LDM(5), IAC(), NOP()})
+	ram := NewRAM()
+	c := NewCPU4004()
+
+	var buf strings.Builder
+	c.Trace = true
+	c.TraceWriter = &buf
+
+	for i := 0; i < 3; i++ {
+		if err := c.Step(rom, ram); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "LDM 5") {
+		t.Errorf("trace non contiene 'LDM 5':\n%s", out)
+	}
+	if !strings.Contains(out, "IAC") {
+		t.Errorf("trace non contiene 'IAC':\n%s", out)
+	}
+	if !strings.Contains(out, "NOP") {
+		t.Errorf("trace non contiene 'NOP':\n%s", out)
+	}
+	if !strings.Contains(out, "A=5") {
+		t.Errorf("trace non contiene 'A=5' (atteso dopo LDM 5):\n%s", out)
+	}
+	if !strings.Contains(out, "A=6") {
+		t.Errorf("trace non contiene 'A=6' (atteso dopo IAC):\n%s", out)
+	}
+}
+
+func TestTraceDisabledByDefault(t *testing.T) {
+	rom := NewROM([]byte{LDM(7)})
+	ram := NewRAM()
+	c := NewCPU4004()
+
+	var buf strings.Builder
+	c.TraceWriter = &buf // writer impostato, ma Trace = false (default)
+
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("trace output non vuoto con Trace=false: %q", buf.String())
+	}
+}
+
+func TestTraceIOInstructionShowsCLAndSRC(t *testing.T) {
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+	c := NewCPU4004()
+	c.CL = 2
+	c.SRCAddr = 0x13
+	c.A = 5
+
+	var buf strings.Builder
+	c.Trace = true
+	c.TraceWriter = &buf
+
+	rom.Data[0x000] = WRM()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "CL=2") {
+		t.Errorf("trace I/O non contiene 'CL=2':\n%s", out)
+	}
+	if !strings.Contains(out, "SRC=13") {
+		t.Errorf("trace I/O non contiene 'SRC=13':\n%s", out)
 	}
 }
