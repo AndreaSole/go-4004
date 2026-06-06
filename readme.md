@@ -6,7 +6,7 @@ L'obiettivo finale è creare:
 
 * un emulatore completo del processore Intel 4004
 * una ROM virtuale
-* RAM virtuale
+* RAM virtuale (chip Intel 4002)
 * I/O virtuale
 * un firmware che faccia funzionare il sistema come una calcolatrice da tavolo
 
@@ -23,44 +23,73 @@ Il progetto è sviluppato con focus su:
 
 # Stato attuale
 
-Attualmente il progetto include:
+**33 / 46 istruzioni implementate**
 
-* CPU Intel 4004 completa (30/46 istruzioni)
-* registri, accumulator, carry, command line
-* decoder opcode con supporto istruzioni a 2 byte
-* helper functions stile mini assembler
-* ROM virtuale
-* ciclo fetch-execute (`Step`)
-* Program Counter a 12 bit (range 0x000–0xFFF)
-* stack hardware a 3 livelli (JMS/BBL)
+Gruppo registro — completo (8/8):
 
-Istruzioni implementate:
+| Istruzione | Opcode | Descrizione |
+|------------|--------|-------------|
+| NOP        | 0x00   | No operation |
+| INC Rr     | 0x6r   | Incrementa registro |
+| ADD Rr     | 0x8r   | Somma registro ad A con carry |
+| SUB Rr     | 0x9r   | Sottrae registro da A con borrow |
+| LD Rr      | 0xAr   | Carica registro in A |
+| XCH Rr     | 0xBr   | Scambia A con registro |
+| BBL n      | 0xCr   | Ritorno da subroutine, carica n in A |
+| LDM n      | 0xDr   | Carica immediato in A |
 
-Gruppo registro (completo):
-* NOP, LDM, LD, XCH, INC, ADD, SUB, BBL
+Gruppo accumulatore — completo (14/14):
 
-Gruppo accumulatore (completo):
-* IAC, DAC, CMA, CLB, CLC, STC, CMC, RAL, RAR, TCC, TCS, DAA, KBP, DCL
+| Istruzione | Opcode | Descrizione |
+|------------|--------|-------------|
+| CLB        | 0xF0   | A=0, C=false |
+| CLC        | 0xF1   | C=false |
+| IAC        | 0xF2   | A++ |
+| CMC        | 0xF3   | C=!C |
+| CMA        | 0xF4   | A=~A |
+| RAL        | 0xF5   | Ruota A a sinistra attraverso C |
+| RAR        | 0xF6   | Ruota A a destra attraverso C |
+| TCC        | 0xF7   | A=C, C=false |
+| DAC        | 0xF8   | A-- |
+| TCS        | 0xF9   | A=9 o 10 in base a C, C=false |
+| STC        | 0xFA   | C=true |
+| DAA        | 0xFB   | Correzione BCD dopo addizione |
+| KBP        | 0xFC   | Decodifica one-hot in posizione |
+| DCL        | 0xFD   | CL=A, seleziona banco RAM |
 
-Gruppo salti (completo):
-* JUN — salto incondizionale a 12 bit (2 byte)
-* JMS — salto a subroutine con push stack (2 byte)
-* JCN — salto condizionale (carry, A==0, NOT) (2 byte)
-* ISZ — incrementa registro, salta se != 0 (2 byte)
-* FIM — fetch immediato in coppia di registri (2 byte)
-* SRC — imposta indirizzo RAM per I/O (1 byte)
-* FIN — fetch indiretto da ROM via R0:R1 (1 byte)
-* JIN — salto indiretto via coppia di registri (1 byte)
+Gruppo salti e indirizzamento — completo (8/8):
+
+| Istruzione | Opcode      | Byte | Descrizione |
+|------------|-------------|------|-------------|
+| JCN c,a    | 0x1c + byte | 2    | Salto condizionale |
+| FIM Rr,d   | 0x2r + byte | 2    | Fetch immediato in coppia registro |
+| SRC Rr     | 0x2r+1      | 1    | Imposta indirizzo RAM (SRCAddr) |
+| FIN Rr     | 0x3r        | 1    | Fetch indiretto da ROM via R0:R1 |
+| JIN Rr     | 0x3r+1      | 1    | Salto indiretto via coppia registro |
+| JUN a      | 0x4r + byte | 2    | Salto incondizionale a 12 bit |
+| JMS a      | 0x5r + byte | 2    | Salto a subroutine (push PC) |
+| ISZ Rr,a   | 0x7r + byte | 2    | Incrementa registro, salta se != 0 |
+
+Gruppo I/O e RAM — in corso (5/16):
+
+| Istruzione | Opcode | Descrizione |
+|------------|--------|-------------|
+| WRM        | 0xE0   | Scrive A nella RAM data |
+| WMP        | 0xE1   | Scrive A sulla porta di output RAM |
+| SBM        | 0xE8   | A = A - RAM - borrow |
+| RDM        | 0xE9   | Legge RAM data in A |
+| ADM        | 0xEB   | A = A + RAM + carry |
 
 ---
 
-# Obiettivo architetturale
+# Infrastruttura
 
-L'emulatore deve rappresentare l'hardware.
-
-La logica della calcolatrice NON sarà scritta direttamente in Go.
-
-La calcolatrice sarà un programma caricato in una ROM virtuale, proprio come nei sistemi reali basati su Intel 4004.
+* CPU Intel 4004 con 33/46 istruzioni
+* ROM virtuale — `cpu/rom.go`
+* RAM virtuale — `cpu/ram.go` (modello chip Intel 4002)
+* Ciclo fetch-execute — `Step(rom, ram)`
+* Program Counter a 12 bit (0x000–0xFFF)
+* Stack hardware a 3 livelli
 
 ---
 
@@ -72,93 +101,45 @@ go-4004/
 ├── main.go
 ├── readme.md
 ├── docs/
-│   └── bcd.md
+│   └── bcd.md              ← spiegazione codifica BCD
 └── cpu/
-    ├── cpu.go
-    ├── opcodes.go
-    ├── helpers.go
-    ├── instructions.go
-    ├── rom.go
-    ├── cpu_test.go
-    ├── instructions_test.go
-    └── rom_test.go
+    ├── cpu.go              ← struct CPU, Step(), stack
+    ├── opcodes.go          ← costanti opcode in 4 gruppi
+    ├── helpers.go          ← helper functions (mini assembler)
+    ├── instructions.go     ← Execute(), executeWithArg(), executeIO()
+    ├── rom.go              ← struct ROM
+    ├── ram.go              ← struct RAM (Intel 4002)
+    ├── cpu_test.go         ← test inizializzazione CPU
+    ├── instructions_test.go ← test tutte le istruzioni
+    └── rom_test.go         ← test Step(), PC wrap
 ```
 
 ---
 
-# File principali
-
-## cpu/cpu.go
-
-Contiene:
-
-* struttura CPU
-* accumulator
-* carry
-* registri
-* program counter
-* utility nibble()
-
----
-
-## cpu/opcodes.go
-
-Contiene:
-
-* costanti registri
-* costanti opcode
-
----
-
-## cpu/helpers.go
-
-Contiene helper functions per costruire opcode leggibili.
-
-Esempio:
-
-```go
-cpu.LDM(2)
-cpu.XCH(cpu.R0)
-cpu.ADD(cpu.R0)
-```
-
----
-
-## cpu/instructions.go
-
-Contiene il decoder ed executor delle istruzioni:
-
-```go
-func (c *CPU4004) Execute(op byte) error
-```
-
----
-
-## cpu/cpu_test.go
-
-Conterrà i test automatici.
-
----
-
-# Stato CPU attuale
-
-## Registri
-
-Il 4004 contiene:
-
-* accumulator A
-* carry flag C
-* 16 registri da 4 bit
-* program counter
-
-Rappresentazione attuale:
+# Struct CPU
 
 ```go
 type CPU4004 struct {
-	A  uint8
-	C  bool
-	R  [16]uint8
-	PC uint16
+    A       uint8     // Accumulator, 4 bit
+    C       bool      // Carry flag
+    R       [16]uint8 // Registri R0–RF, 4 bit ciascuno
+    PC      uint16    // Program Counter, 12 bit (0x000–0xFFF)
+    CL      uint8     // Command Line — banco RAM attivo (da DCL)
+    Stack   [3]uint16 // Stack hardware a 3 livelli
+    SP      uint8     // Stack pointer
+    SRCAddr uint8     // Indirizzo RAM corrente (da SRC)
+}
+```
+
+---
+
+# Struct RAM
+
+```go
+type RAM struct {
+    Data   [4][4][20]uint8 // [banco][registro][carattere]
+    Status [4][4][4]uint8  // [banco][registro][status nibble]
+    Port   [4]uint8        // porta di output per banco
 }
 ```
 
@@ -166,19 +147,11 @@ type CPU4004 struct {
 
 # Gestione nibble
 
-Il 4004 è un processore a 4 bit.
-
-Go non supporta tipi da 4 bit, quindi viene usato:
-
-```go
-uint8
-```
-
-limitando i valori ai primi 4 bit tramite:
+Il 4004 è un processore a 4 bit. Go usa `uint8` mascherato:
 
 ```go
 func nibble(v uint8) uint8 {
-	return v & 0x0F
+    return v & 0x0F
 }
 ```
 
@@ -186,80 +159,51 @@ func nibble(v uint8) uint8 {
 
 # Opcode
 
-Le istruzioni vengono riconosciute tramite maschere bitwise.
-
-Esempio:
+Le istruzioni vengono riconosciute tramite maschere bitwise:
 
 ```go
-case op&0xF0 == OP_ADD:
+case op&0xF0 == OP_ADD:   // famiglia di istruzioni (registro variabile)
+case op == OP_IAC:         // istruzione singola (byte fisso)
 ```
-
-Questo approccio è più vicino a come funzionano i decoder hardware reali.
 
 ---
 
 # Helper functions
 
-Per evitare opcode poco leggibili come:
+Ogni istruzione ha un helper che costruisce l'opcode corretto:
 
 ```go
-0xD2
-0xB0
-0x80
+cpu.LDM(7)        // 0xD7
+cpu.ADD(cpu.R2)   // 0x82
+cpu.JMS(0x3)      // 0x53 (primo byte di JMS 0x3AB)
+cpu.WRM()         // 0xE0
 ```
-
-vengono usate helper functions:
-
-```go
-cpu.LDM(2)
-cpu.XCH(cpu.R0)
-cpu.ADD(cpu.R0)
-```
-
-Questo rende il codice:
-
-* più leggibile
-* più vicino all'assembly reale
-* più facile da estendere
-* preparato per un futuro assembler
 
 ---
 
-# Esempio programma attuale
+# Esempio programma
+
+Scrittura e lettura di un valore in RAM:
 
 ```go
-program := []byte{
-	cpu.LDM(2),
-	cpu.XCH(cpu.R0),
-	cpu.LDM(3),
-	cpu.ADD(cpu.R0),
-}
-```
-
-Questo programma esegue:
-
-```text
-2 + 3 = 5
+rom.Data[0x000] = cpu.LDM(0)
+rom.Data[0x001] = cpu.DCL()           // banco 0
+rom.Data[0x002] = cpu.FIM(cpu.R0)
+rom.Data[0x003] = 0x05                // R0=0, R1=5
+rom.Data[0x004] = cpu.SRC(cpu.R0)    // SRCAddr = 0x05
+rom.Data[0x005] = cpu.LDM(7)
+rom.Data[0x006] = cpu.WRM()           // ram.Data[0][0][5] = 7
+rom.Data[0x007] = cpu.LDM(0)
+rom.Data[0x008] = cpu.RDM()           // A = 7
 ```
 
 ---
 
 # Esecuzione
 
-Avvio progetto:
-
 ```bash
 go run .
-```
-
----
-
-# Output atteso
-
-```text
-A = 5
-Carry = false
-R0 = 2
+go test ./...
 ```
 
 ---
@@ -274,127 +218,38 @@ Vuole essere anche:
 * un percorso di apprendimento
 * una ricostruzione storica del funzionamento dei primi microprocessori
 
-Lo sviluppo avviene in piccoli step:
-
-1. implementazione
-2. test
-3. verifica
-4. estensione
+Lo sviluppo avviene in piccoli step atomici:
+un'istruzione alla volta, con test, demo in main e commit dedicato.
 
 ---
 
 # Roadmap
 
-## Step attuale
-
-CPU minima:
-
-* NOP
-* LDM
-* LD
-* XCH
-* INC
-* ADD
-* SUB
-* IAC
-* DAC
-* CMA
-* CLB
-* CLC
-* STC
-* CMC
-* RAL
-* RAR
-* TCC
-* TCS
-* DAA
-* KBP
-* DCL
-
-
-* test LDM
-* test LD
-* test XCH
-* test INC
-* test ADD
-* test carry
-* test NOP
-* test SUB
-* test SUB con borrow
-* test IAC
-* test IAC con overflow
-
-* ROM virtuale
-* ciclo fetch-execute (Step)
-* PC a 12 bit
-
-## Step futuri
-
-* Step 7 — RAM virtuale (chip Intel 4002: 4 banchi, istruzioni 0xEX)
-* Step 8 — I/O virtuale (tastiera, display)
-* Step 9-13 — firmware calcolatrice completa
-* Step 14 — debugger (trace PC, opcode, registri)
-* Step 15 — assembler minimale (testo → ROM binaria)
-
----
-
-# Informazioni sul set istruzioni
-
-Il target finale è:
-
-```text
-46 istruzioni Intel 4004 complete
-```
-
-Molti opcode sono varianti della stessa istruzione.
-
-Esempio:
-
-```text
-D0 = LDM 0
-D1 = LDM 1
-...
-DF = LDM 15
-```
-
-Questa rappresenta:
-
-```text
-1 istruzione logica
-16 encoding diversi
-```
+| Step | Stato | Contenuto |
+|------|-------|-----------|
+| 1  | ✅ | CPU minima (NOP, LDM, ADD, SUB, ...) |
+| 2  | ✅ | Test automatici |
+| 3  | ✅ | ROM virtuale + fetch-execute |
+| 4  | ✅ | PC a 12 bit |
+| 5  | ✅ | Stack hardware (JMS/BBL) |
+| 6  | ✅ | Istruzioni di salto (JUN, JMS, JCN, ISZ, FIM, SRC, FIN, JIN) |
+| 7  | 🔲 | RAM virtuale — istruzioni 0xEX (5/16 completate) |
+| 8  | 🔲 | I/O virtuale (tastiera, display) |
+| 9  | 🔲 | Programmi reali da ROM |
+| 10 | 🔲 | Mini calcolatrice BCD |
+| 11 | 🔲 | Operazioni -, ×, ÷ |
+| 12 | 🔲 | Numeri multi-cifra |
+| 13 | 🔲 | Loop firmware completo |
+| 14 | 🔲 | Debugger (trace PC, opcode, registri) |
+| 15 | 🔲 | Assembler minimale |
 
 ---
 
 # Obiettivo finale firmware
 
-La CPU dovrà eseguire un firmware da ROM virtuale che implementi una calcolatrice.
-
-Loop firmware previsto:
+La CPU eseguirà un firmware da ROM che implementa una calcolatrice.
+La logica della calcolatrice è scritta come programma nella ROM — non in Go.
 
 ```text
-leggi tastiera
-interpreta input
-aggiorna stato
-esegui operazione
-aggiorna display
-ripeti
+leggi tastiera  →  interpreta input  →  esegui operazione  →  aggiorna display  →  ripeti
 ```
-
----
-
-# Note
-
-Questo progetto è volutamente sviluppato senza scorciatoie ad alto livello.
-
-L'obiettivo è comprendere realmente:
-
-* fetch
-* decode
-* execute
-* gestione memoria
-* bus logici
-* ALU
-* stack
-* architettura CPU
-* funzionamento storico dei microprocessori
