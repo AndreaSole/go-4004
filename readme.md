@@ -251,14 +251,14 @@ un'istruzione alla volta, con test, demo in main e commit dedicato.
 | 5  | ✅ | Stack hardware (JMS/BBL) |
 | 6  | ✅ | Istruzioni di salto (JUN, JMS, JCN, ISZ, FIM, SRC, FIN, JIN) |
 | 7  | ✅ | RAM virtuale — tutte le 46 istruzioni implementate |
-| 8  | 🔲 | I/O virtuale (tastiera, display) |
-| 9  | 🔲 | Programmi reali da ROM |
-| 10 | 🔲 | Mini calcolatrice BCD |
-| 11 | 🔲 | Operazioni -, ×, ÷ |
-| 12 | 🔲 | Numeri multi-cifra |
-| 13 | 🔲 | Loop firmware completo |
-| 14 | 🔲 | Debugger (trace PC, opcode, registri) |
-| 15 | 🔲 | Assembler minimale |
+| 8  | 🔲 | Debugger — trace `PC / opcode / A / C` per ogni step |
+| 9  | 🔲 | Programmi reali — validare la CPU con programmi non banali |
+| 10 | 🔲 | Calcolatrice BCD cifra singola — primo firmware reale |
+| 11 | 🔲 | Numeri multi-cifra — addizione con carry tra cifre in RAM |
+| 12 | 🔲 | Assembler minimale — testo → ROM binaria |
+| 13 | 🔲 | Operazioni complete — sottrazione, moltiplicazione, divisione BCD |
+| 14 | 🔲 | I/O virtuale — callback tastiera (RDR) e display (WMP) |
+| 15 | 🔲 | Firmware loop completo — calcolatrice interattiva |
 
 ---
 
