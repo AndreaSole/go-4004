@@ -311,6 +311,24 @@ func (c *CPU4004) executeIO(op byte, ram *RAM) error {
 		c.A = nibble(result)
 		c.C = result > 0x0F
 
+	// SBM: A = A - RAM - borrow. Come SUB ma con operando dalla RAM.
+	// Usa la stessa formula di SUB: A + complemento(RAM) + carry.
+	// C=1 se nessun borrow generato, C=0 se borrow.
+	case OP_SBM:
+		carry := uint8(0)
+		if c.C {
+			carry = 1
+		}
+		result := c.A + nibble(^ram.Data[banco][reg][char]) + carry
+		c.A = nibble(result)
+		c.C = result > 0x0F
+
+	// WMP: scrive A sulla porta di output del banco RAM corrente.
+	// Usata per comunicare con dispositivi esterni (display, buzzer, ecc.).
+	// Non modifica A né il carry.
+	case OP_WMP:
+		ram.Port[banco] = nibble(c.A)
+
 	default:
 		return fmt.Errorf("istruzione I/O non implementata: 0x%02X", op)
 	}

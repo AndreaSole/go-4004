@@ -1279,3 +1279,109 @@ func TestADMWithCarryOut(t *testing.T) {
 		t.Error("C = false, want true")
 	}
 }
+
+// --- SBM ---
+
+func TestSBM(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	ram.Data[0][0][0] = 3
+	c.A = 7
+	c.C = true // nessun borrow precedente
+	c.SRCAddr = 0x00
+
+	rom.Data[0x000] = SBM()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 4 {
+		t.Errorf("A = %d, want 4", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true (no borrow)")
+	}
+}
+
+func TestSBMWithBorrow(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	ram.Data[0][0][0] = 7
+	c.A = 3
+	c.C = true // nessun borrow precedente
+	c.SRCAddr = 0x00
+
+	rom.Data[0x000] = SBM()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 12 { // 3 - 7 = -4 → nibble(12)
+		t.Errorf("A = %d, want 12", c.A)
+	}
+	if c.C {
+		t.Error("C = true, want false (borrow generated)")
+	}
+}
+
+func TestSBMWithPriorBorrow(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	ram.Data[0][0][0] = 3
+	c.A = 5
+	c.C = false // borrow precedente
+	c.SRCAddr = 0x00
+
+	rom.Data[0x000] = SBM()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 1 { // 5 - 3 - 1 = 1
+		t.Errorf("A = %d, want 1", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true")
+	}
+}
+
+// --- WMP ---
+
+func TestWMP(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	c.CL = 1 // banco 1
+	c.A = 0xA
+
+	rom.Data[0x000] = WMP()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if ram.Port[1] != 0xA {
+		t.Errorf("Port[1] = %X, want A", ram.Port[1])
+	}
+	if c.A != 0xA {
+		t.Errorf("A = %X, want A (WMP should not modify A)", c.A)
+	}
+}
+
+func TestWMPDoesNotAffectCarry(t *testing.T) {
+	c := NewCPU4004()
+	rom := NewROM(make([]byte, 256))
+	ram := NewRAM()
+
+	c.C = true
+	c.A = 5
+	rom.Data[0x000] = WMP()
+	if err := c.Step(rom, ram); err != nil {
+		t.Fatal(err)
+	}
+	if !c.C {
+		t.Error("C = false, want true (WMP should not affect carry)")
+	}
+}

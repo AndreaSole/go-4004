@@ -38,3 +38,5 @@ func JIN(rp byte) byte       { return OP_JIN | (nibble(rp) &^ 1) }
 func WRM() byte { return OP_WRM }
 func RDM() byte { return OP_RDM }
 func ADM() byte { return OP_ADM }
+func SBM() byte { return OP_SBM }
+func WMP() byte { return OP_WMP }
