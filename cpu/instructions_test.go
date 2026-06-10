@@ -170,7 +170,7 @@ func TestSUB(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 7
 	c.R[R2] = 3
-	c.C = true
+	c.C = false // CY=0 in ingresso: sottrazione esatta (A + ~Rr + 1)
 	if err := c.Execute(SUB(R2)); err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestSUB(t *testing.T) {
 		t.Errorf("A = %d, want 4", c.A)
 	}
 	if !c.C {
-		t.Error("C = false, want true")
+		t.Error("C = false, want true (nessun borrow generato)")
 	}
 }
 
@@ -186,7 +186,7 @@ func TestSUBWithBorrow(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 3
 	c.R[R2] = 7
-	c.C = true
+	c.C = false
 	if err := c.Execute(SUB(R2)); err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestSUBWithBorrow(t *testing.T) {
 		t.Errorf("A = %d, want 12", c.A)
 	}
 	if c.C {
-		t.Error("C = true, want false")
+		t.Error("C = true, want false (borrow generato)")
 	}
 }
 
@@ -202,7 +202,7 @@ func TestSUBWithPriorBorrow(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 5
 	c.R[R2] = 3
-	c.C = false
+	c.C = true // CY=1 in ingresso: borrow dalla cifra precedente (A + ~Rr + 0)
 	if err := c.Execute(SUB(R2)); err != nil {
 		t.Fatal(err)
 	}
@@ -211,6 +211,44 @@ func TestSUBWithPriorBorrow(t *testing.T) {
 	}
 	if !c.C {
 		t.Error("C = false, want true")
+	}
+}
+
+// Sottrazione multi-nibble come da manuale MCS-4: in uscita da SUB CY=1
+// significa "nessun borrow", ma in ingresso il borrow è CY=1 — le due
+// convenzioni sono opposte, quindi tra una cifra e la successiva il carry
+// va complementato con CMC.
+func TestSUBMultiDigitWithCMC(t *testing.T) {
+	c := NewCPU4004()
+	// 0x42 - 0x17 = 0x2B, un nibble alla volta
+	c.R[R0] = 0x7 // nibble basso del sottraendo
+	c.R[R1] = 0x1 // nibble alto del sottraendo
+	c.C = false   // nessun borrow iniziale
+
+	c.A = 0x2 // nibble basso del minuendo
+	if err := c.Execute(SUB(R0)); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 0xB {
+		t.Errorf("nibble basso = %X, want B", c.A)
+	}
+	if c.C {
+		t.Error("C = true, want false (2 - 7 genera borrow)")
+	}
+
+	if err := c.Execute(CMC()); err != nil { // borrow out → borrow in
+		t.Fatal(err)
+	}
+
+	c.A = 0x4 // nibble alto del minuendo
+	if err := c.Execute(SUB(R1)); err != nil {
+		t.Fatal(err)
+	}
+	if c.A != 0x2 { // 4 - 1 - 1(borrow) = 2 → risultato 0x2B
+		t.Errorf("nibble alto = %X, want 2", c.A)
+	}
+	if !c.C {
+		t.Error("C = false, want true (nessun borrow)")
 	}
 }
 
@@ -619,14 +657,16 @@ func TestDCL(t *testing.T) {
 	}
 }
 
-func TestDCLMasksAccumulatorToThreeBits(t *testing.T) {
+// L'emulatore modella 4 banchi RAM (un chip 4002 per banco): DCL maschera
+// A a 2 bit, coerente con l'indirizzamento usato da executeIO.
+func TestDCLMasksAccumulatorToBankRange(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 0xF
 	if err := c.Execute(DCL()); err != nil {
 		t.Fatal(err)
 	}
-	if c.CL != 7 {
-		t.Errorf("CL = %d, want 7", c.CL)
+	if c.CL != 3 {
+		t.Errorf("CL = %d, want 3", c.CL)
 	}
 	if c.A != 0xF {
 		t.Errorf("A = %d, want 15 (unchanged)", c.A)
@@ -794,7 +834,7 @@ func TestJCNCarrySet(t *testing.T) {
 	c := NewCPU4004()
 	c.C = true
 	rom := NewROM(make([]byte, 4096))
-	// JCN con C2=1 (salta se carry=1): cond = 0b0010 = 2
+	// JCN con C3=1 (salta se carry=1): cond = 0b0010 = 2
 	rom.Data[0x000] = JCN(0x2)
 	rom.Data[0x001] = 0x50 // target: pagina 0, offset 0x50
 	if err := c.Step(rom, nil); err != nil {
@@ -809,7 +849,7 @@ func TestJCNCarryClearNoJump(t *testing.T) {
 	c := NewCPU4004()
 	c.C = false
 	rom := NewROM(make([]byte, 4096))
-	// JCN con C2=1 (salta se carry=1): carry è falso → nessun salto
+	// JCN con C3=1 (salta se carry=1): carry è falso → nessun salto
 	rom.Data[0x000] = JCN(0x2)
 	rom.Data[0x001] = 0x50
 	if err := c.Step(rom, nil); err != nil {
@@ -824,7 +864,7 @@ func TestJCNAccZero(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 0
 	rom := NewROM(make([]byte, 4096))
-	// JCN con C3=1 (salta se A=0): cond = 0b0100 = 4
+	// JCN con C2=1 (salta se A=0): cond = 0b0100 = 4
 	rom.Data[0x000] = JCN(0x4)
 	rom.Data[0x001] = 0x30
 	if err := c.Step(rom, nil); err != nil {
@@ -1292,7 +1332,7 @@ func TestSBM(t *testing.T) {
 
 	ram.Data[0][0][0] = 3
 	c.A = 7
-	c.C = true // nessun borrow precedente
+	c.C = false // CY=0 in ingresso: nessun borrow precedente
 	c.SRCAddr = 0x00
 
 	rom.Data[0x000] = SBM()
@@ -1314,7 +1354,7 @@ func TestSBMWithBorrow(t *testing.T) {
 
 	ram.Data[0][0][0] = 7
 	c.A = 3
-	c.C = true // nessun borrow precedente
+	c.C = false // CY=0 in ingresso: nessun borrow precedente
 	c.SRCAddr = 0x00
 
 	rom.Data[0x000] = SBM()
@@ -1336,7 +1376,7 @@ func TestSBMWithPriorBorrow(t *testing.T) {
 
 	ram.Data[0][0][0] = 3
 	c.A = 5
-	c.C = false // borrow precedente
+	c.C = true // CY=1 in ingresso: borrow precedente
 	c.SRCAddr = 0x00
 
 	rom.Data[0x000] = SBM()

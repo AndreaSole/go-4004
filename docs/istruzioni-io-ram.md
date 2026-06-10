@@ -16,7 +16,7 @@ Tutti gli opcode di questo gruppo sono nella forma `0xEX` (byte singolo fisso).
 Ogni chip 4002 contiene:
 
 ```
-4 registri × 20 nibble di dati  = 80 nibble (area dati)
+4 registri × 16 nibble di dati = 64 nibble (area dati)
 4 registri × 4 nibble di stato  = 16 nibble (area status)
 1 porta di output da 4 bit
 ```
@@ -206,18 +206,20 @@ DAA  →  13 + 6 = 19 → nibble = 3, C = true
 
 ## SBM — Subtract RAM from Accumulator
 
-**Cosa fa:** sottrae il valore della cella RAM corrente da A usando il carry come link.
+**Cosa fa:** sottrae il valore della cella RAM corrente da A usando il carry come borrow in ingresso.
 Identica a `SUB Rr` ma legge l'operando dalla RAM.
 
 **Opcode:** `0xE8`
 
-**Formula:** `result = A + ~RAM + carry;  A = nibble(result);  C = result > 0x0F`
+**Formula:** `result = A + ~RAM + ~carry;  A = nibble(result);  C = result > 0x0F`
 
-Come in `SUB`: `C = true` significa nessun borrow, `C = false` significa borrow generato.
+Come in `SUB`: il carry in ingresso è complementato (`C = false` → sottrazione
+esatta, `C = true` → borrow in ingresso); in uscita `C = true` significa nessun
+borrow, `C = false` significa borrow generato.
 
 **Esempio senza borrow:**
 ```
-A = 7, C = true (nessun borrow precedente)
+A = 7, C = false (nessun borrow precedente)
 RAM.Data[0][0][0] = 3
 
 SBM
@@ -227,7 +229,7 @@ result = 7 + ~3 + 1 = 7 + 12 + 1 = 20 > 15  →  A = nibble(20) = 4, C = true
 
 **Esempio con borrow (risultato negativo):**
 ```
-A = 3, C = true
+A = 3, C = false
 RAM.Data[0][0][0] = 7
 
 SBM
@@ -239,7 +241,7 @@ result = 3 + ~7 + 1 = 3 + 8 + 1 = 12  →  A = 12, C = false (borrow!)
 
 | Cosa | Cambia? |
 |------|---------|
-| A    | ✅ sì — (A + ~RAM + C) mod 16 |
+| A    | ✅ sì — (A + ~RAM + ~C) mod 16 |
 | C    | ✅ sì — true = no borrow, false = borrow |
 
 ---

@@ -105,25 +105,19 @@ func (c *CPU4004) Execute(op byte) error {
 		// ADD R0-R15: aggiunge il valore del registro specificato (R0-R15) all'accumulatore (A) e al carry
 		// Ad esempio, se A = 0x03, R0 = 0x02 e C = false, dopo ADD R0, A sarà 0x05 e C sarà false
 		// Se A = 0x0F, R0 = 0x01 e C = true, dopo ADD R0, A sarà 0x01 (0 + 1 + 1) e C sarà true (carry)
-		carry := uint8(0)
-		if c.C {
-			carry = 1
-		}
-
-		result := c.A + c.R[low] + carry
+		result := c.A + c.R[low] + c.carryIn()
 		c.A = nibble(result)
 
 		// Il carry è true se il risultato dell'addizione supera 0x0F (15), altrimenti è false
 		c.C = result > 0x0F
 
-	// SUB R0-R15: A = A + ~Rr + CY. Sul 4004 CY=1 significa nessun borrow
-	// precedente; dopo l'operazione CY=1 significa nessun borrow generato.
+	// SUB R0-R15: A = A + ~Rr + ~CY (formula Intel). Il carry in ingresso è
+	// complementato: CY=0 → A-Rr, CY=1 → A-Rr-1. Dopo l'operazione CY=1
+	// significa nessun borrow generato, CY=0 borrow. Le convenzioni in
+	// ingresso e in uscita sono opposte: per le sottrazioni multi-cifra
+	// il manuale MCS-4 richiede CMC tra una SUB e la successiva.
 	case op&0xF0 == OP_SUB:
-		carry := uint8(0)
-		if c.C {
-			carry = 1
-		}
-		sum := c.A + nibble(^c.R[low]) + carry
+		sum := c.A + nibble(^c.R[low]) + (1 - c.carryIn())
 		c.A = nibble(sum)
 		c.C = sum > 0x0F
 
@@ -217,7 +211,11 @@ func (c *CPU4004) Execute(op byte) error {
 	// Usato prima delle istruzioni RAM (WRM, RDM, ecc.) per indicare quale banco di chip Intel 4002 risponde.
 	// Non modifica A né il carry.
 	case op == OP_DCL:
-		c.CL = c.A & 0x07 // CL può essere solo 0-7, quindi prendiamo solo i 3 bit meno significativi di A
+		// Sul 4004 reale i 3 bit bassi di A pilotano le linee CM-RAM (fino a
+		// 8 banchi, con codifica parzialmente one-hot). L'emulatore modella
+		// 4 banchi (un chip 4002 per banco), quindi CL usa solo 2 bit —
+		// la stessa maschera applicata da executeIO.
+		c.CL = c.A & 0x03
 
 	// KBP: Keyboard Process, converte un valore one-hot dell'accumulatore nel numero di posizione del bit attivo.
 	// Usato per decodificare la colonna attiva durante la scansione della tastiera a matrice.
@@ -303,23 +301,15 @@ func (c *CPU4004) executeIO(op byte, rom *ROM, ram *RAM) error {
 	// ADM: A = A + RAM + carry. Come ADD ma con operando dalla RAM.
 	// Imposta il carry se il risultato supera 0x0F.
 	case OP_ADM:
-		carry := uint8(0)
-		if c.C {
-			carry = 1
-		}
-		result := c.A + ram.Data[banco][reg][char] + carry
+		result := c.A + ram.Data[banco][reg][char] + c.carryIn()
 		c.A = nibble(result)
 		c.C = result > 0x0F
 
-	// SBM: A = A - RAM - borrow. Come SUB ma con operando dalla RAM.
-	// Usa la stessa formula di SUB: A + complemento(RAM) + carry.
-	// C=1 se nessun borrow generato, C=0 se borrow.
+	// SBM: come SUB ma con operando dalla RAM: A = A + ~RAM + ~CY.
+	// Carry in ingresso complementato (CY=0 → A-RAM, CY=1 → A-RAM-1);
+	// in uscita C=1 se nessun borrow generato, C=0 se borrow.
 	case OP_SBM:
-		carry := uint8(0)
-		if c.C {
-			carry = 1
-		}
-		result := c.A + nibble(^ram.Data[banco][reg][char]) + carry
+		result := c.A + nibble(^ram.Data[banco][reg][char]) + (1 - c.carryIn())
 		c.A = nibble(result)
 		c.C = result > 0x0F
 
@@ -332,14 +322,8 @@ func (c *CPU4004) executeIO(op byte, rom *ROM, ram *RAM) error {
 	// WR0–WR3: scrive A nel nibble di stato 0–3 del registro RAM corrente.
 	// L'area status è separata dai dati ed è usata dal firmware per metadati.
 	// Non modifica A né il carry.
-	case OP_WR0:
-		ram.Status[banco][reg][0] = nibble(c.A)
-	case OP_WR1:
-		ram.Status[banco][reg][1] = nibble(c.A)
-	case OP_WR2:
-		ram.Status[banco][reg][2] = nibble(c.A)
-	case OP_WR3:
-		ram.Status[banco][reg][3] = nibble(c.A)
+	case OP_WR0, OP_WR1, OP_WR2, OP_WR3:
+		ram.Status[banco][reg][op-OP_WR0] = nibble(c.A)
 
 	// WRR: scrive A sulla porta di output del chip ROM (Intel 4001).
 	// Usata per pilotare le righe della tastiera a matrice o altri output collegati alla ROM.
@@ -365,14 +349,8 @@ func (c *CPU4004) executeIO(op byte, rom *ROM, ram *RAM) error {
 
 	// RD0–RD3: legge il nibble di stato 0–3 del registro RAM corrente in A.
 	// Non modifica il carry.
-	case OP_RD0:
-		c.A = nibble(ram.Status[banco][reg][0])
-	case OP_RD1:
-		c.A = nibble(ram.Status[banco][reg][1])
-	case OP_RD2:
-		c.A = nibble(ram.Status[banco][reg][2])
-	case OP_RD3:
-		c.A = nibble(ram.Status[banco][reg][3])
+	case OP_RD0, OP_RD1, OP_RD2, OP_RD3:
+		c.A = nibble(ram.Status[banco][reg][op-OP_RD0])
 
 	default:
 		return fmt.Errorf("istruzione I/O non implementata: 0x%02X", op)

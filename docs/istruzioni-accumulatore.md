@@ -433,12 +433,12 @@ Se A ha più di un bit a 1 (input non valido), KBP restituisce 0xF (15) come cod
 
 ## DCL — Designate Command Line
 
-**Cosa fa:** imposta il **banco RAM attivo** copiando i 3 bit bassi di A nel registro CL interno.
+**Cosa fa:** imposta il **banco RAM attivo** copiando i bit bassi di A nel registro CL interno.
 Le successive istruzioni RAM (WRM, RDM, ecc.) opereranno sul banco selezionato.
 
 **Opcode:** `0xFD` = `1111 1101`
 
-**Formula:** `CL = A & 0b0111`  (solo 3 bit: banchi 0–7)
+**Formula:** `CL = A & 0b0011`  (2 bit: banchi 0–3)
 
 **Esempio:**
 ```
@@ -449,7 +449,7 @@ Risultato: CL = 3  →  banco RAM 3 selezionato
            C = invariato
 ```
 
-**Nota:** il 4004 supporta fino a 8 banchi RAM (CL = 0–7). I bit 4–15 di A vengono ignorati.
+**Nota:** il 4004 reale supporta fino a 8 banchi RAM tramite le linee CM-RAM; l'emulatore modella 4 banchi (un chip 4002 per banco), quindi CL usa 2 bit. I bit alti di A vengono ignorati.
 
 **Schema di utilizzo:**
 ```

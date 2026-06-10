@@ -415,7 +415,7 @@ SRC R0:
 ```
 
 **Nota:** SRC e DCL lavorano insieme per selezionare la RAM:
-- `DCL` seleziona il gruppo di chip (banco 0-7)
+- `DCL` seleziona il banco RAM attivo (0-3 nell'emulatore)
 - `SRC` seleziona il registro specifico dentro il chip
 
 **Effetti:**

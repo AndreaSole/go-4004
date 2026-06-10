@@ -36,7 +36,9 @@ type CPU4004 struct {
 	// SRCAddr verrà spostato dentro RAM — che è il posto architetturalmente corretto —
 	// e questo campo verrà rimosso dalla CPU.
 	//
-	// Formato: nibble alto (bit 7-4) = chip/banco RAM, nibble basso (bit 3-0) = registro nel chip.
+	// Formato (semplificato, un chip 4002 per banco): bit 5-4 = registro nel chip,
+	// bit 3-0 = carattere nel registro. I bit 7-6, che sul 4004 reale selezionano
+	// uno dei 4 chip del banco, non sono emulati e vengono ignorati.
 	SRCAddr uint8
 
 	// Trace e TraceWriter controllano la modalità debugger.
@@ -61,6 +63,16 @@ func NewCPU4004() *CPU4004 {
 // Senza questa funzione, potremmo ottenere un risultato errato come 0x10 (16) che non è valido per un registro a 4 bit
 func nibble(v uint8) uint8 {
 	return v & 0x0F
+}
+
+// carryIn restituisce il carry come addendo numerico (0 o 1) per le
+// istruzioni aritmetiche (ADD, ADM). Le sottrazioni (SUB, SBM) usano
+// il complemento: 1 - carryIn().
+func (c *CPU4004) carryIn() uint8 {
+	if c.C {
+		return 1
+	}
+	return 0
 }
 
 // Step esegue un singolo ciclo fetch-execute:
@@ -147,6 +159,13 @@ func (c *CPU4004) Push(addr uint16) { c.push(addr) }
 func (c *CPU4004) push(addr uint16) {
 	c.Stack[c.SP%3] = addr & 0x0FFF
 	c.SP++
+	// Limita SP preservando la fase modulo 3: oltre 3 livelli lo stack è
+	// comunque pieno e i valori più vecchi sono già stati sovrascritti.
+	// Senza questo limite SP (uint8) andrebbe in overflow dopo 256 push,
+	// rompendo la rotazione circolare (256 % 3 ≠ (255+1) % 3 in uint8).
+	if c.SP >= 6 {
+		c.SP -= 3
+	}
 }
 
 // pop recupera l'indirizzo di ritorno dallo stack (usato da BBL).

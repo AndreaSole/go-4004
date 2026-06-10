@@ -314,22 +314,22 @@ con ADD, poi i nibble alti con ADD (che include automaticamente il carry del pas
 
 ## SUB — Subtract Register from Accumulator
 
-**Cosa fa:** sottrae il valore del registro Rr da A usando il carry/link come input.
-Nel 4004, durante le sottrazioni, `C = true` significa **nessun borrow precedente**;
-`C = false` significa che c'era un borrow precedente.
+**Cosa fa:** sottrae il valore del registro Rr da A usando il carry/link come borrow in ingresso.
 
-**Formula Intel:** `A = A + ~Rr + C`  (poi tronca a 4 bit, e aggiorna C)
+**Formula Intel:** `A = A + ~Rr + ~C`  (poi tronca a 4 bit, e aggiorna C)
 
-Equivalente:
-- se `C = true`: `A = A - Rr`
-- se `C = false`: `A = A - Rr - 1`
+Il carry in ingresso viene **complementato** prima della somma:
+- se `C = false`: `A = A - Rr` (sottrazione esatta)
+- se `C = true`: `A = A - Rr - 1` (borrow dalla cifra precedente)
 
 **Regola del carry/borrow in SUB:**
 - Dopo SUB, se c'è stato borrow, C = **false**
 - Se non c'è stato borrow, C = **true**
 
-Questa è la convenzione usata dal 4004 reale: il carry/link resta alto quando
-la sottrazione non ha avuto bisogno di un prestito.
+Attenzione: le convenzioni in ingresso e in uscita sono **opposte** — in
+ingresso il borrow è `C = true`, in uscita il borrow è `C = false`. Per questo
+nelle sottrazioni multi-cifra il manuale MCS-4 richiede di complementare il
+carry con `CMC` tra una SUB e la successiva.
 
 **Opcode:** `0x9r` dove `r` è il numero del registro (0–F)
 
@@ -345,7 +345,7 @@ la sottrazione non ha avuto bisogno di un prestito.
 ```
 A = 7  (0111)
 R2 = 3 (0011)
-C = true
+C = false
 
 SUB R2:
   0111  (7)
@@ -358,7 +358,7 @@ SUB R2:
 ```
 A = 3  (0011)
 R2 = 7 (0111)
-C = true
+C = false
 
 SUB R2:
   3 - 7 = -4
@@ -374,7 +374,7 @@ Il 4004 tratta i 4 bit come un ciclo, quindi -4 diventa 12 (16 - 4 = 12):
 ```
 A = 5
 R2 = 3
-C = false  ← borrow dal calcolo precedente
+C = true  ← borrow dal calcolo precedente (es. dopo CMC)
 
 SUB R2:
   5 - 3 - 1 = 1   →   A = 1, C = true
@@ -384,7 +384,7 @@ SUB R2:
 
 | Registro | Cambia? | Valore |
 |----------|---------|--------|
-| A        | ✅ sì   | A + ~Rr + C (mod 16) |
+| A        | ✅ sì   | A + ~Rr + ~C (mod 16) |
 | C        | ✅ sì   | true se non c'è borrow, false se c'è borrow |
 | Rr       | ❌ no   | invariato |
 
@@ -464,5 +464,5 @@ Opcode BBL 5:
 | XCH Rr     | `0xBr`  | A ↔ Rr              | C               |
 | INC Rr     | `0x6r`  | Rr = Rr + 1 (mod 16)| A, C            |
 | ADD Rr     | `0x8r`  | A = A+Rr+C, aggiorna C | Rr            |
-| SUB Rr     | `0x9r`  | A = A+~Rr+C, aggiorna C | Rr            |
+| SUB Rr     | `0x9r`  | A = A+~Rr+~C, aggiorna C | Rr            |
 | BBL n      | `0xCn`  | A = n, PC←stack     | C               |

@@ -154,7 +154,7 @@ type CPU4004 struct {
 
 ```go
 type RAM struct {
-    Data   [4][4][20]uint8 // [banco][registro][carattere]
+    Data   [4][4][16]uint8 // [banco][registro][carattere]
     Status [4][4][4]uint8  // [banco][registro][status nibble]
     Port   [4]uint8        // porta di output per banco
 }
