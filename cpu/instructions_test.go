@@ -794,7 +794,7 @@ func TestJCNCarrySet(t *testing.T) {
 	c := NewCPU4004()
 	c.C = true
 	rom := NewROM(make([]byte, 4096))
-	// JCN con C2=1 (salta se carry=1): cond = 0b0010 = 2
+	// JCN con C3=1 (salta se carry=1): cond = 0b0010 = 2
 	rom.Data[0x000] = JCN(0x2)
 	rom.Data[0x001] = 0x50 // target: pagina 0, offset 0x50
 	if err := c.Step(rom, nil); err != nil {
@@ -809,7 +809,7 @@ func TestJCNCarryClearNoJump(t *testing.T) {
 	c := NewCPU4004()
 	c.C = false
 	rom := NewROM(make([]byte, 4096))
-	// JCN con C2=1 (salta se carry=1): carry è falso → nessun salto
+	// JCN con C3=1 (salta se carry=1): carry è falso → nessun salto
 	rom.Data[0x000] = JCN(0x2)
 	rom.Data[0x001] = 0x50
 	if err := c.Step(rom, nil); err != nil {
@@ -824,7 +824,7 @@ func TestJCNAccZero(t *testing.T) {
 	c := NewCPU4004()
 	c.A = 0
 	rom := NewROM(make([]byte, 4096))
-	// JCN con C3=1 (salta se A=0): cond = 0b0100 = 4
+	// JCN con C2=1 (salta se A=0): cond = 0b0100 = 4
 	rom.Data[0x000] = JCN(0x4)
 	rom.Data[0x001] = 0x30
 	if err := c.Step(rom, nil); err != nil {
@@ -852,7 +852,7 @@ func TestJCNInvertedCondition(t *testing.T) {
 	c := NewCPU4004()
 	c.C = false
 	rom := NewROM(make([]byte, 4096))
-	// JCN con C4=1 C2=1 (salta se NOT carry=1, cioè se carry=0): cond = 0b1010 = 0xA
+	// JCN con C1=1 C3=1 (salta se NOT carry=1, cioè se carry=0): cond = 0b1010 = 0xA
 	rom.Data[0x000] = JCN(0xA)
 	rom.Data[0x001] = 0x40
 	if err := c.Step(rom, nil); err != nil {

@@ -105,12 +105,7 @@ func (c *CPU4004) Execute(op byte) error {
 		// ADD R0-R15: aggiunge il valore del registro specificato (R0-R15) all'accumulatore (A) e al carry
 		// Ad esempio, se A = 0x03, R0 = 0x02 e C = false, dopo ADD R0, A sarà 0x05 e C sarà false
 		// Se A = 0x0F, R0 = 0x01 e C = true, dopo ADD R0, A sarà 0x01 (0 + 1 + 1) e C sarà true (carry)
-		carry := uint8(0)
-		if c.C {
-			carry = 1
-		}
-
-		result := c.A + c.R[low] + carry
+		result := c.A + c.R[low] + c.carryIn()
 		c.A = nibble(result)
 
 		// Il carry è true se il risultato dell'addizione supera 0x0F (15), altrimenti è false
@@ -119,11 +114,7 @@ func (c *CPU4004) Execute(op byte) error {
 	// SUB R0-R15: A = A + ~Rr + CY. Sul 4004 CY=1 significa nessun borrow
 	// precedente; dopo l'operazione CY=1 significa nessun borrow generato.
 	case op&0xF0 == OP_SUB:
-		carry := uint8(0)
-		if c.C {
-			carry = 1
-		}
-		sum := c.A + nibble(^c.R[low]) + carry
+		sum := c.A + nibble(^c.R[low]) + c.carryIn()
 		c.A = nibble(sum)
 		c.C = sum > 0x0F
 
@@ -247,8 +238,9 @@ func (c *CPU4004) Execute(op byte) error {
 		c.PC = c.pop()
 
 	// SRC Rr: send register control — imposta l'indirizzo del registro RAM per le operazioni I/O.
-	// Il byte SRC è formato da Rr (nibble alto = chip/banco RAM) e Rr+1 (nibble basso = registro).
-	// Memorizzato in SRCAddr; verrà letto dalle istruzioni del gruppo 0xEX (WRM, RDM...) in Step 7.
+	// Il byte SRC è formato da Rr (nibble alto = registro RAM, 0-3) e Rr+1 (nibble basso = carattere, 0-15).
+	// Memorizzato in SRCAddr; letto dalle istruzioni del gruppo 0xEX (WRM, RDM...) in executeIO.
+	// Il banco RAM è selezionato separatamente da CL (DCL), non da SRC.
 	// Bit 0 del nibble basso dell'opcode è sempre 1 (distingue SRC da FIM a 2 byte).
 	case op&0xF1 == OP_SRC:
 		rp := low &^ 1 // forza Rr pari
@@ -303,11 +295,7 @@ func (c *CPU4004) executeIO(op byte, rom *ROM, ram *RAM) error {
 	// ADM: A = A + RAM + carry. Come ADD ma con operando dalla RAM.
 	// Imposta il carry se il risultato supera 0x0F.
 	case OP_ADM:
-		carry := uint8(0)
-		if c.C {
-			carry = 1
-		}
-		result := c.A + ram.Data[banco][reg][char] + carry
+		result := c.A + ram.Data[banco][reg][char] + c.carryIn()
 		c.A = nibble(result)
 		c.C = result > 0x0F
 
@@ -315,11 +303,7 @@ func (c *CPU4004) executeIO(op byte, rom *ROM, ram *RAM) error {
 	// Usa la stessa formula di SUB: A + complemento(RAM) + carry.
 	// C=1 se nessun borrow generato, C=0 se borrow.
 	case OP_SBM:
-		carry := uint8(0)
-		if c.C {
-			carry = 1
-		}
-		result := c.A + nibble(^ram.Data[banco][reg][char]) + carry
+		result := c.A + nibble(^ram.Data[banco][reg][char]) + c.carryIn()
 		c.A = nibble(result)
 		c.C = result > 0x0F
 
@@ -331,15 +315,10 @@ func (c *CPU4004) executeIO(op byte, rom *ROM, ram *RAM) error {
 
 	// WR0–WR3: scrive A nel nibble di stato 0–3 del registro RAM corrente.
 	// L'area status è separata dai dati ed è usata dal firmware per metadati.
+	// Gli opcode 0xE4-0xE7 sono sequenziali: op&0x03 dà direttamente l'indice 0-3.
 	// Non modifica A né il carry.
-	case OP_WR0:
-		ram.Status[banco][reg][0] = nibble(c.A)
-	case OP_WR1:
-		ram.Status[banco][reg][1] = nibble(c.A)
-	case OP_WR2:
-		ram.Status[banco][reg][2] = nibble(c.A)
-	case OP_WR3:
-		ram.Status[banco][reg][3] = nibble(c.A)
+	case OP_WR0, OP_WR1, OP_WR2, OP_WR3:
+		ram.Status[banco][reg][op&0x03] = nibble(c.A)
 
 	// WRR: scrive A sulla porta di output del chip ROM (Intel 4001).
 	// Usata per pilotare le righe della tastiera a matrice o altri output collegati alla ROM.
@@ -364,15 +343,10 @@ func (c *CPU4004) executeIO(op byte, rom *ROM, ram *RAM) error {
 		}
 
 	// RD0–RD3: legge il nibble di stato 0–3 del registro RAM corrente in A.
+	// Gli opcode 0xEC-0xEF sono sequenziali: op&0x03 dà direttamente l'indice 0-3.
 	// Non modifica il carry.
-	case OP_RD0:
-		c.A = nibble(ram.Status[banco][reg][0])
-	case OP_RD1:
-		c.A = nibble(ram.Status[banco][reg][1])
-	case OP_RD2:
-		c.A = nibble(ram.Status[banco][reg][2])
-	case OP_RD3:
-		c.A = nibble(ram.Status[banco][reg][3])
+	case OP_RD0, OP_RD1, OP_RD2, OP_RD3:
+		c.A = nibble(ram.Status[banco][reg][op&0x03])
 
 	default:
 		return fmt.Errorf("istruzione I/O non implementata: 0x%02X", op)

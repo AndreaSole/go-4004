@@ -71,7 +71,6 @@ const (
 )
 
 // Gruppo I/O e RAM (0xEX)
-// FIXME: Da implementare (richiede RAM virtuale e SRC).
 const (
 	OP_WRM = 0xE0 // Write RAM data     — scrivi A in RAM
 	OP_WMP = 0xE1 // Write RAM port     — scrivi A su porta output RAM

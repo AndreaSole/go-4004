@@ -31,12 +31,12 @@ type CPU4004 struct {
 	// mette il valore sui pin del bus esterno, e il chip RAM Intel 4002 collegato
 	// lo riceve e lo salva al suo interno. L'indirizzo non vive nella CPU, vive nel chip RAM.
 	//
-	// Nell'emulatore non esiste un bus fisico, quindi conserviamo qui il valore
-	// come comodo placeholder. Quando verrà implementata la struct RAM,
-	// SRCAddr verrà spostato dentro RAM — che è il posto architetturalmente corretto —
-	// e questo campo verrà rimosso dalla CPU.
+	// Nell'emulatore SRCAddr resta nella struct CPU anche dopo l'introduzione di RAM
+	// (Step 7): spostarlo richiederebbe cambiare la firma di Execute(), rompendo i
+	// test esistenti. Le istruzioni del gruppo 0xEX leggono c.SRCAddr direttamente.
 	//
-	// Formato: nibble alto (bit 7-4) = chip/banco RAM, nibble basso (bit 3-0) = registro nel chip.
+	// Formato: bit 5-4 = registro RAM (0-3), bit 3-0 = carattere (0-15).
+	// Il banco RAM è invece selezionato da CL (impostato da DCL), non da SRCAddr.
 	SRCAddr uint8
 
 	// Trace e TraceWriter controllano la modalità debugger.
@@ -51,6 +51,15 @@ type CPU4004 struct {
 // Questo è importante per garantire che il comportamento del CPU sia prevedibile e corretto fin dall'inizio
 func NewCPU4004() *CPU4004 {
 	return &CPU4004{}
+}
+
+// carryIn restituisce 1 se il carry flag è impostato, 0 altrimenti.
+// Usato da ADD, SUB, ADM, SBM per includere il carry/borrow in ingresso nella somma.
+func (c *CPU4004) carryIn() uint8 {
+	if c.C {
+		return 1
+	}
+	return 0
 }
 
 // nibble estrae i 4 bit meno significativi di un byte
@@ -147,6 +156,9 @@ func (c *CPU4004) Push(addr uint16) { c.push(addr) }
 func (c *CPU4004) push(addr uint16) {
 	c.Stack[c.SP%3] = addr & 0x0FFF
 	c.SP++
+	if c.SP > 5 {
+		c.SP -= 3 // mantiene la fase di SP%3 senza rischiare overflow di uint8
+	}
 }
 
 // pop recupera l'indirizzo di ritorno dallo stack (usato da BBL).
